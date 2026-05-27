@@ -25,7 +25,9 @@ export function EditorDialogPattern({
       )}
     >
       <div className="grid gap-2">
-        <h2 className="text-base font-semibold leading-none">{title}</h2>
+        <h2 className="text-base font-semibold leading-none text-copy-secondary">
+          {title}
+        </h2>
         {description ? (
           <p className="text-sm leading-5 text-copy-muted">{description}</p>
         ) : null}

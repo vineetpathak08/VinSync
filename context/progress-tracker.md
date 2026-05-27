@@ -29,6 +29,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Built sign-in and sign-up pages with the two-panel layout and Clerk components.
 - Redirected `/` based on auth state and moved the editor shell to `/editor`.
 - Added Clerk `UserButton` to the editor navbar.
+- Built the editor home empty state and project dialogs from `context/feature-specs/04-project-dialogs.md`.
 
 ## In Progress
 

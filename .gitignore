@@ -9,7 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
- /currentIssues.md
+/currentIssues.md
  
 # testing
 /coverage
