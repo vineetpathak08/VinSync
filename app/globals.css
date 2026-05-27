@@ -131,3 +131,8 @@
     @apply font-sans;
   }
 }
+
+.cl-modalBackdrop {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(2px);
+}

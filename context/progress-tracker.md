@@ -4,7 +4,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Editor chrome foundation complete
+- Authentication wiring complete
 
 ## Current Goal
 
@@ -23,6 +23,12 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added floating project sidebar shell with shadcn tabs, empty states, close control, slide-in behavior, and New Project action.
 - Added reusable editor dialog layout pattern with title, description, body, and footer action slots using existing theme tokens.
 - Wired the editor chrome into the home route through a reusable `EditorLayout` shell.
+- Auth integration from `context/feature-specs/03-auth.md`.
+- Wrapped the app in `ClerkProvider` using the Clerk dark theme with CSS variable overrides.
+- Added protected-first `proxy.ts` routing with public auth paths and home redirect.
+- Built sign-in and sign-up pages with the two-panel layout and Clerk components.
+- Redirected `/` based on auth state and moved the editor shell to `/editor`.
+- Added Clerk `UserButton` to the editor navbar.
 
 ## In Progress
 
@@ -52,3 +58,6 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added `components/editor/editor-layout.tsx` to compose the editor navbar and floating project sidebar with local sidebar state.
 - Updated `app/page.tsx` to render the editor layout around the placeholder canvas workspace.
 - Validation passed with `npm.cmd run lint` and `npm.cmd run build`; build required network access for Next font fetching.
+- Implemented Clerk auth wiring with `ClerkProvider`, `proxy.ts`, and auth redirects.
+- Built sign-in and sign-up pages per the two-panel spec using Clerk components.
+- Moved the editor layout to `/editor` and added the Clerk user menu to the navbar.
