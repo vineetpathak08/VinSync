@@ -1,16 +1,17 @@
-"use client"
+"use client";
 
-import type { ReactNode } from "react"
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import type { ReactNode } from "react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface EditorNavbarProps {
-  isSidebarOpen: boolean
-  onSidebarToggle: () => void
-  centerSlot?: ReactNode
-  className?: string
+  isSidebarOpen: boolean;
+  onSidebarToggle: () => void;
+  centerSlot?: ReactNode;
+  className?: string;
 }
 
 export function EditorNavbar({
@@ -19,13 +20,13 @@ export function EditorNavbar({
   centerSlot,
   className,
 }: EditorNavbarProps) {
-  const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen
+  const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen;
 
   return (
     <header
       className={cn(
         "grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-surface-border bg-surface px-4",
-        className
+        className,
       )}
     >
       <div className="flex min-w-0 items-center">
@@ -33,7 +34,9 @@ export function EditorNavbar({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={isSidebarOpen ? "Close project sidebar" : "Open project sidebar"}
+          aria-label={
+            isSidebarOpen ? "Close project sidebar" : "Open project sidebar"
+          }
           aria-pressed={isSidebarOpen}
           onClick={onSidebarToggle}
         >
@@ -45,7 +48,9 @@ export function EditorNavbar({
         {centerSlot}
       </div>
 
-      <div className="flex min-w-0 items-center justify-end" aria-hidden="true" />
+      <div className="flex min-w-0 items-center justify-end">
+        <UserButton />
+      </div>
     </header>
-  )
+  );
 }

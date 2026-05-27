@@ -20,7 +20,7 @@ export function EditorLayout({ children, className }: EditorLayoutProps) {
       <EditorNavbar
         isSidebarOpen={isProjectSidebarOpen}
         onSidebarToggle={() => setIsProjectSidebarOpen((isOpen) => !isOpen)}
-        centerSlot={<span>Ghost AI</span>}
+        centerSlot={<span>VinSync</span>}
       />
       <ProjectSidebar
         isOpen={isProjectSidebarOpen}
