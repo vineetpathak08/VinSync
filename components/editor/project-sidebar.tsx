@@ -2,40 +2,19 @@
 
 import { Pencil, Plus, Trash2, X } from "lucide-react"
 
-import { useProjectDialogActions, type ProjectSummary } from "@/components/editor/use-project-dialogs"
+import { useProjectDialogActions } from "@/components/editor/use-project-dialogs"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
+import type { ProjectSummary } from "@/types/project"
 
 interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
+  ownedProjects: ProjectSummary[]
+  sharedProjects: ProjectSummary[]
   className?: string
 }
-
-const mockOwnedProjects: ProjectSummary[] = [
-  {
-    id: "project-01",
-    name: "Core Platform Refresh",
-    slug: "core-platform-refresh",
-    isOwner: true,
-  },
-  {
-    id: "project-02",
-    name: "Realtime Observability",
-    slug: "realtime-observability",
-    isOwner: true,
-  },
-]
-
-const mockSharedProjects: ProjectSummary[] = [
-  {
-    id: "project-03",
-    name: "Billing Workflow",
-    slug: "billing-workflow",
-    isOwner: false,
-  },
-]
 
 function EmptyProjectState() {
   return (
@@ -48,11 +27,11 @@ function EmptyProjectState() {
 export function ProjectSidebar({
   isOpen,
   onClose,
+  ownedProjects,
+  sharedProjects,
   className,
 }: ProjectSidebarProps) {
   const { openCreate, openRename, openDelete } = useProjectDialogActions()
-  const ownedProjects = mockOwnedProjects
-  const sharedProjects = mockSharedProjects
 
   return (
     <>

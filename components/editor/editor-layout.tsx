@@ -7,13 +7,21 @@ import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
 import { ProjectDialogProvider } from "@/components/editor/use-project-dialogs"
 import { cn } from "@/lib/utils"
+import type { ProjectSummary } from "@/types/project"
 
 interface EditorLayoutProps {
   children: ReactNode
+  ownedProjects: ProjectSummary[]
+  sharedProjects: ProjectSummary[]
   className?: string
 }
 
-export function EditorLayout({ children, className }: EditorLayoutProps) {
+export function EditorLayout({
+  children,
+  ownedProjects,
+  sharedProjects,
+  className,
+}: EditorLayoutProps) {
   const [isProjectSidebarOpen, setIsProjectSidebarOpen] = useState(false)
 
   return (
@@ -27,6 +35,8 @@ export function EditorLayout({ children, className }: EditorLayoutProps) {
         <ProjectSidebar
           isOpen={isProjectSidebarOpen}
           onClose={() => setIsProjectSidebarOpen(false)}
+          ownedProjects={ownedProjects}
+          sharedProjects={sharedProjects}
         />
         <main className="relative min-h-0 flex-1 overflow-hidden">
           {children}
