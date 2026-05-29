@@ -6,7 +6,11 @@ export default async function EditorPage() {
   const { ownedProjects, sharedProjects } = await getProjectSidebarData();
 
   return (
-    <EditorLayout ownedProjects={ownedProjects} sharedProjects={sharedProjects}>
+    <EditorLayout
+      ownedProjects={ownedProjects}
+      sharedProjects={sharedProjects}
+      navbarTitle="Projects"
+    >
       <EditorHome />
     </EditorLayout>
   );

@@ -1,22 +1,27 @@
-"use client"
+"use client";
 
-import type { ReactNode } from "react"
-import { createContext, useContext, useMemo } from "react"
+import type { ReactNode } from "react";
+import { createContext, useContext, useMemo } from "react";
 
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { EditorDialogPattern } from "@/components/editor/editor-dialog-pattern"
-import { useProjectActions } from "@/hooks/use-project-actions"
-import type { ProjectSummary } from "@/types/project"
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { EditorDialogPattern } from "@/components/editor/editor-dialog-pattern";
+import { useProjectActions } from "@/hooks/use-project-actions";
+import type { ProjectSummary } from "@/types/project";
 
 interface ProjectDialogActions {
-  openCreate: () => void
-  openRename: (project: ProjectSummary) => void
-  openDelete: (project: ProjectSummary) => void
+  openCreate: () => void;
+  openRename: (project: ProjectSummary) => void;
+  openDelete: (project: ProjectSummary) => void;
 }
 
-const ProjectDialogContext = createContext<ProjectDialogActions | null>(null)
+const ProjectDialogContext = createContext<ProjectDialogActions | null>(null);
 
 function ProjectDialogs({
   dialogState,
@@ -31,7 +36,7 @@ function ProjectDialogs({
   handleRenameSubmit,
   handleDeleteConfirm,
 }: ReturnType<typeof useProjectActions>) {
-  const projectName = dialogState.project?.name
+  const projectName = dialogState.project?.name;
 
   return (
     <>
@@ -39,7 +44,7 @@ function ProjectDialogs({
         open={dialogState.type === "create"}
         onOpenChange={(open) => {
           if (!open) {
-            closeDialog()
+            closeDialog();
           }
         }}
       >
@@ -61,7 +66,11 @@ function ProjectDialogs({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" form="create-project" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  form="create-project"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Creating..." : "Create Project"}
                 </Button>
               </>
@@ -103,19 +112,23 @@ function ProjectDialogs({
         open={dialogState.type === "rename"}
         onOpenChange={(open) => {
           if (!open) {
-            closeDialog()
+            closeDialog();
           }
         }}
       >
         <DialogContent className="max-w-md border-0 bg-transparent p-0 shadow-none ring-0">
           <DialogTitle className="sr-only">Rename project</DialogTitle>
           <DialogDescription className="sr-only">
-            {projectName ? `Current name: ${projectName}` : "Update the project name."}
+            {projectName
+              ? `Current name: ${projectName}`
+              : "Update the project name."}
           </DialogDescription>
           <EditorDialogPattern
             title="Rename project"
             description={
-              projectName ? `Current name: ${projectName}` : "Update the project name."
+              projectName
+                ? `Current name: ${projectName}`
+                : "Update the project name."
             }
             footer={
               <>
@@ -127,7 +140,11 @@ function ProjectDialogs({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" form="rename-project" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  form="rename-project"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Saving..." : "Save Changes"}
                 </Button>
               </>
@@ -161,7 +178,7 @@ function ProjectDialogs({
         open={dialogState.type === "delete"}
         onOpenChange={(open) => {
           if (!open) {
-            closeDialog()
+            closeDialog();
           }
         }}
       >
@@ -207,34 +224,36 @@ function ProjectDialogs({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
 
 export function ProjectDialogProvider({ children }: { children: ReactNode }) {
-  const dialogState = useProjectActions()
+  const dialogState = useProjectActions();
   const actions = useMemo(
     () => ({
       openCreate: dialogState.openCreate,
       openRename: dialogState.openRename,
       openDelete: dialogState.openDelete,
     }),
-    [dialogState.openCreate, dialogState.openDelete, dialogState.openRename]
-  )
+    [dialogState.openCreate, dialogState.openDelete, dialogState.openRename],
+  );
 
   return (
     <ProjectDialogContext.Provider value={actions}>
       {children}
       <ProjectDialogs {...dialogState} />
     </ProjectDialogContext.Provider>
-  )
+  );
 }
 
 export function useProjectDialogActions() {
-  const context = useContext(ProjectDialogContext)
+  const context = useContext(ProjectDialogContext);
 
   if (!context) {
-    throw new Error("useProjectDialogActions must be used within ProjectDialogProvider")
+    throw new Error(
+      "useProjectDialogActions must be used within ProjectDialogProvider",
+    );
   }
 
-  return context
+  return context;
 }

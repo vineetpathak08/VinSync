@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Editor home wiring complete
+- Share dialog complete
 
 ## Current Goal
 
-- Validate build and select the next feature unit.
+- Validate build and choose the next feature unit.
 
 ## Completed
 
@@ -32,17 +32,19 @@ Update this file whenever the current phase, active feature, or implementation s
 - Built the editor home empty state and project dialogs from `context/feature-specs/04-project-dialogs.md`.
 - Prisma schema and data layer from `context/feature-specs/05-prisma.md`.
 - Added `Project` and `ProjectCollaborator` models with enums, relations, and indexes.
-- Created and applied the first Prisma migration for `Project`, `ProjectCollaborator`, and `ProjectStatus`.
 - Added a cached Prisma client singleton with Accelerate/adapter branching in `lib/prisma.ts`.
 - Project API routes from `context/feature-specs/06-project-apis.md`.
 - Added `GET /api/projects` and `POST /api/projects` for owner-scoped list/create.
 - Added `PATCH /api/projects/[projectId]` and `DELETE /api/projects/[projectId]` with owner checks and 401/403 handling.
-- Wired editor home sidebar and dialogs to real project data from `context/feature-specs/07-wire-editor-home.md`.
-- Added server-side project list helper for owned/shared projects.
-- Added project actions hook to create, rename, and delete projects via API calls.
-- Updated editor home and sidebar to use real project data with room ID previews.
-- Corrected Prisma 7 client instantiation for Accelerate URLs and direct Postgres adapters.
-- Validated the editor home/project API build with `npm.cmd run build`.
+- Editor workspace shell from `context/feature-specs/08-editor-workspace-shell.md`.
+- Added `AccessDenied` for unauthorized or missing workspaces.
+- Added `lib/project-access.ts` helpers for Clerk identity and project access checks.
+- Added `/editor/[roomId]` server route with access checks and workspace placeholders.
+- Updated editor layout to support project titles, share/AI actions, and an AI sidebar placeholder.
+- Highlighted the active workspace in the project sidebar.
+- Share dialog from `context/feature-specs/09-share-dialog.md`.
+- Added share dialog UI with invite, list, remove, and copy link flows.
+- Added project collaborator API routes with Clerk user enrichment.
 
 ## In Progress
 
@@ -76,9 +78,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Built sign-in and sign-up pages per the two-panel spec using Clerk components.
 - Moved the editor layout to `/editor` and added the Clerk user menu to the navbar.
 - Added Prisma multi-file schema models for projects and collaborators.
-- Applied Prisma migration `20260528111943_init_project_models` to create the project tables and status enum in Postgres.
 - Added `lib/prisma.ts` Prisma client singleton with Accelerate or pg adapter selection.
 - Implemented Project API routes for list/create/rename/delete with Clerk auth, ownership checks, and predictable responses.
-- Fixed the Prisma 7 Accelerate branch to use `accelerateUrl`, typed the development singleton cache to the factory return type, and restored strict project-summary mapping types.
-- Validation passed with `npm.cmd run build`; build required network access for Next font fetching.
-- Resolved the missing `public.Project` runtime error; Prisma migration status is up to date and `npm.cmd run build` passes with network access for Next font fetching.
+- Implemented the `/editor/[roomId]` workspace shell with server-side access checks and layout placeholders.
+- Implemented share dialog UI, collaborator API routes, and Clerk user enrichment for collaborator display.

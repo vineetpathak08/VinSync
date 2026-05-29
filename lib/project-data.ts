@@ -1,50 +1,50 @@
-import "server-only"
+import "server-only";
 
-import { auth, currentUser } from "@clerk/nextjs/server"
+import { auth, currentUser } from "@clerk/nextjs/server";
 
-import { prisma } from "@/lib/prisma"
-import type { Project } from "@/app/generated/prisma/client"
-import type { ProjectSummary } from "@/types/project"
+import { prisma } from "@/lib/prisma";
+import type { Project } from "@/app/generated/prisma/client";
+import type { ProjectSummary } from "@/types/project";
 
 interface ProjectSidebarData {
-  ownedProjects: ProjectSummary[]
-  sharedProjects: ProjectSummary[]
+  ownedProjects: ProjectSummary[];
+  sharedProjects: ProjectSummary[];
 }
 
-type ProjectSummarySource = Pick<Project, "id" | "name">
+type ProjectSummarySource = Pick<Project, "id" | "name">;
 
 const toProjectSummary = (
   project: ProjectSummarySource,
-  isOwner: boolean
+  isOwner: boolean,
 ): ProjectSummary => ({
   id: project.id,
   name: project.name,
   slug: project.id,
   isOwner,
-})
+});
 
 export async function getProjectSidebarData(): Promise<ProjectSidebarData> {
-  const { userId } = await auth()
+  const { userId } = await auth();
 
   if (!userId) {
-    return { ownedProjects: [], sharedProjects: [] }
+    return { ownedProjects: [], sharedProjects: [] };
   }
 
-  const user = await currentUser()
-  const emails = user?.emailAddresses.map((email) => email.emailAddress) ?? []
+  const user = await currentUser();
+  const emails = user?.emailAddresses.map((email) => email.emailAddress) ?? [];
 
   const ownedProjects = await prisma.project.findMany({
     where: { ownerId: userId },
     orderBy: { createdAt: "desc" },
-  })
+  });
 
   if (emails.length === 0) {
     return {
       ownedProjects: ownedProjects.map((project: ProjectSummarySource) =>
-        toProjectSummary(project, true)
+        toProjectSummary(project, true),
       ),
       sharedProjects: [],
-    }
+    };
   }
 
   const sharedProjects = await prisma.project.findMany({
@@ -57,14 +57,14 @@ export async function getProjectSidebarData(): Promise<ProjectSidebarData> {
       },
     },
     orderBy: { createdAt: "desc" },
-  })
+  });
 
   return {
     ownedProjects: ownedProjects.map((project: ProjectSummarySource) =>
-      toProjectSummary(project, true)
+      toProjectSummary(project, true),
     ),
     sharedProjects: sharedProjects.map((project: ProjectSummarySource) =>
-      toProjectSummary(project, false)
+      toProjectSummary(project, false),
     ),
-  }
+  };
 }
