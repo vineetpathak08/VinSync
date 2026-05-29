@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 
@@ -34,9 +34,10 @@ const getProject = async (projectId: string) => {
 const ensureOwner = (ownerId: string, userId: string) => ownerId === userId;
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ projectId: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
+  const { projectId } = await params;
   const { userId } = await auth();
 
   if (!userId) {
@@ -47,11 +48,13 @@ export async function PATCH(
   const name = normalizeProjectName(body?.name);
 
   if (!name) {
-    return NextResponse.json({ error: "Invalid project name" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid project name" },
+      { status: 400 },
+    );
   }
 
-  const resolvedParams = await params;
-  const project = await getProject(resolvedParams.projectId);
+  const project = await getProject(projectId);
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -70,17 +73,17 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ projectId: string }> }
+  _request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
+  const { projectId } = await params;
   const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const resolvedParams = await params;
-  const project = await getProject(resolvedParams.projectId);
+  const project = await getProject(projectId);
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });

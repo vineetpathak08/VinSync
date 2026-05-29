@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 interface CreateProjectBody {
   name?: string;
-  roomId?: string;
 }
 
 const parseJsonBody = async (request: Request): Promise<unknown | null> => {
@@ -22,18 +21,6 @@ const normalizeProjectName = (input: unknown): string => {
   }
 
   return input.trim();
-};
-
-const normalizeRoomId = (input: unknown): string => {
-  if (typeof input !== "string") {
-    return "";
-  }
-
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
 };
 
 export async function GET() {
@@ -61,11 +48,9 @@ export async function POST(request: Request) {
   const body = (await parseJsonBody(request)) as CreateProjectBody | null;
   const candidateName = normalizeProjectName(body?.name);
   const name = candidateName || "Untitled Project";
-  const roomId = normalizeRoomId(body?.roomId);
 
   const project = await prisma.project.create({
     data: {
-      ...(roomId ? { id: roomId } : {}),
       ownerId: userId,
       name,
     },
