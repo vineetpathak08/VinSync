@@ -66,8 +66,8 @@ export function EditorLayout({
           activeProjectId={activeProjectId}
         />
         <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex h-full min-h-0">
-            <div className="flex h-full min-w-0 flex-1">{children}</div>
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1">{children}</div>
             {rightSidebar && isAiSidebarOpen ? (
               <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-surface-border bg-surface px-4 py-5 lg:flex">
                 {rightSidebar}

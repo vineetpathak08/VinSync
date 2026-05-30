@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Share dialog complete
+- Canvas enhancements
 
 ## Current Goal
 
-- Validate build and choose the next feature unit.
+- Validate the shape panel drag-and-drop flow from `context/feature-specs/12-shape-panel.md`.
 
 ## Completed
 
@@ -45,14 +45,22 @@ Update this file whenever the current phase, active feature, or implementation s
 - Share dialog from `context/feature-specs/09-share-dialog.md`.
 - Added share dialog UI with invite, list, remove, and copy link flows.
 - Added project collaborator API routes with Clerk user enrichment.
+- Liveblocks setup from `context/feature-specs/10-liveblocks-setup.md`.
+- Added Liveblocks Presence/UserMeta typing, cached server client, and cursor color helper.
+- Added `POST /api/liveblocks-auth` with Clerk auth, project access checks, room creation, and session metadata.
+- Base canvas from `context/feature-specs/11-base-canvas.md`.
+- Replaced the workspace placeholder with a Liveblocks-backed React Flow canvas.
+- Added Liveblocks-synced nodes and edges with the React Flow MiniMap and dotted background.
+- Shape panel from `context/feature-specs/12-shape-panel.md`.
+- Added the floating shape toolbar with draggable shape payloads and drop-to-create nodes.
 
 ## In Progress
 
-- None.
+- Validation and polish for the shape panel drag-and-drop flow.
 
 ## Next Up
 
-- Validate build and select the next feature spec.
+- Re-run `npm run build` once validation is complete.
 
 ## Open Questions
 
@@ -82,3 +90,8 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented Project API routes for list/create/rename/delete with Clerk auth, ownership checks, and predictable responses.
 - Implemented the `/editor/[roomId]` workspace shell with server-side access checks and layout placeholders.
 - Implemented share dialog UI, collaborator API routes, and Clerk user enrichment for collaborator display.
+- Implemented Liveblocks server client caching, auth route with access checks, and typed presence metadata.
+- Started base canvas implementation from `context/feature-specs/11-base-canvas.md` after reading the required project context, local Next.js 16 Server/Client Component docs, and Liveblocks React Flow guidance.
+- Installed missing Liveblocks server dependency, aligned identifyUser usage, and made Liveblocks client creation lazy to avoid build-time env failures.
+- Updated the canvas surface styling with a dotted grid and bordered frame to match the requested white-dot canvas look.
+- Added the shape panel, drag-and-drop payloads, and a basic canvas node renderer for `context/feature-specs/12-shape-panel.md`.

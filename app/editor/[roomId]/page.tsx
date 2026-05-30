@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { LiveblocksCanvas } from "@/components/canvas/liveblocks-canvas";
 import { AccessDenied } from "@/components/editor/access-denied";
 import { EditorLayout } from "@/components/editor/editor-layout";
 import { getProjectSidebarData } from "@/lib/project-data";
@@ -56,13 +57,7 @@ export default async function EditorRoomPage({ params }: EditorRoomPageProps) {
         </div>
       }
     >
-      <div className="flex h-full w-full items-center justify-center bg-subtle">
-        <div className="rounded-2xl border border-surface-border bg-surface/70 px-6 py-4 text-center">
-          <p className="text-sm text-copy-muted">
-            Canvas workspace placeholder
-          </p>
-        </div>
-      </div>
+      <LiveblocksCanvas roomId={project.id} />
     </EditorLayout>
   );
 }

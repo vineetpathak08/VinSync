@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@xyflow/react/dist/style.css";
+@import "@liveblocks/react-ui/styles.css";
+@import "@liveblocks/react-flow/styles.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -135,4 +138,8 @@
 .cl-modalBackdrop {
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(2px);
+}
+
+.ghost-canvas .react-flow__background {
+  opacity: 0.4;
 }
