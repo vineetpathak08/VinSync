@@ -1,4 +1,4 @@
-this is the erro that i m running into duing build process after the current changes
+this is the error that i m running into duing build process after the current changes
 
 PS C:\Vineet folder\Projects\ghost-ai> npm run build
 
@@ -9,7 +9,7 @@ Loaded Prisma config from prisma.config.ts.
 
 Prisma schema loaded from prisma.
 
-✔ Generated Prisma Client (7.8.0) to .\app\generated\prisma in 52ms
+✔ Generated Prisma Client (7.8.0) to .\app\generated\prisma in 53ms
 
 
 > ghost-ai@0.1.0 build
@@ -19,17 +19,28 @@ Prisma schema loaded from prisma.
 - Environments: .env.local, .env
 
   Creating an optimized production build ...
-✓ Compiled successfully in 3.4s
-  Running TypeScript  .Failed to type check.
 
-./app/api/projects/[projectId]/collaborators/route.ts:141:33
-Type error: Parameter 'collaborator' implicitly has an 'any' type.
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./lib/liveblocks.ts:3:1
+Module not found: Can't resolve '@liveblocks/node'
+  1 | import "server-only";
+  2 |
+> 3 | import { Liveblocks } from "@liveblocks/node";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 |
+  5 | const LIVEBLOCKS_CURSOR_COLORS = [
+  6 |   "#52A8FF",
 
-  139 |   const hasAccess =
-  140 |     isOwner ||
-> 141 |     project.collaborators.some((collaborator) =>
-      |                                 ^
-  142 |       normalizedEmails.includes(
-  143 |         normalizeEmailString(collaborator.collaboratorEmail),
-  144 |       ),
-Next.js build worker exited with code: 1 and signal: null
+
+
+Import trace:
+  App Route:
+    ./lib/liveblocks.ts
+    ./app/api/liveblocks-auth/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (./lib/liveblocks.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
