@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { EditorNavbar } from "@/components/editor/editor-navbar";
+import StarterTemplatesModal from "@/components/editor/starter-templates-modal";
 import { ShareDialog } from "@/components/editor/share-dialog";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ProjectDialogProvider } from "@/components/editor/use-project-dialogs";
@@ -21,6 +22,7 @@ interface EditorLayoutProps {
   showAiToggle?: boolean;
   rightSidebar?: ReactNode;
   activeProjectId?: string | null;
+  startWithTemplatesOpen?: boolean;
   className?: string;
 }
 
@@ -35,11 +37,15 @@ export function EditorLayout({
   showAiToggle = false,
   rightSidebar,
   activeProjectId,
+  startWithTemplatesOpen = false,
   className,
 }: EditorLayoutProps) {
   const [isProjectSidebarOpen, setIsProjectSidebarOpen] = useState(false);
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(Boolean(rightSidebar));
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isStarterTemplatesOpen, setIsStarterTemplatesOpen] = useState(
+    startWithTemplatesOpen,
+  );
 
   return (
     <ProjectDialogProvider>
@@ -50,6 +56,8 @@ export function EditorLayout({
           title={navbarTitle}
           showShareButton={showShareButton && Boolean(shareProjectId)}
           onShareClick={() => setIsShareDialogOpen(true)}
+          showTemplatesButton={true}
+          onTemplatesClick={() => setIsStarterTemplatesOpen(true)}
           showAiToggle={showAiToggle && Boolean(rightSidebar)}
           isAiSidebarOpen={isAiSidebarOpen}
           onAiToggle={
@@ -83,6 +91,10 @@ export function EditorLayout({
             onOpenChange={setIsShareDialogOpen}
           />
         ) : null}
+        <StarterTemplatesModal
+          isOpen={isStarterTemplatesOpen}
+          onOpenChange={setIsStarterTemplatesOpen}
+        />
       </div>
     </ProjectDialogProvider>
   );

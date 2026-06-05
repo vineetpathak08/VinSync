@@ -7,6 +7,10 @@ import type { ProjectSummary } from "@/types/project";
 
 type DialogType = "create" | "rename" | "delete" | null;
 
+type CreateIntent = "scratch" | "template";
+
+type CreateStage = "choose" | "form";
+
 interface DialogState {
   type: DialogType;
   project: ProjectSummary | null;
@@ -35,6 +39,8 @@ export function useProjectActions() {
   const [createName, setCreateName] = useState("");
   const [renameName, setRenameName] = useState("");
   const [createSuffix, setCreateSuffix] = useState("");
+  const [createIntent, setCreateIntent] = useState<CreateIntent>("scratch");
+  const [createStage, setCreateStage] = useState<CreateStage>("choose");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createSlug = useMemo(() => toSlug(createName), [createName]);
@@ -56,12 +62,32 @@ export function useProjectActions() {
   const closeDialog = useCallback(() => {
     setDialogState({ type: null, project: null });
     setIsSubmitting(false);
+    setCreateIntent("scratch");
+    setCreateStage("choose");
   }, []);
 
   const openCreate = useCallback(() => {
     setDialogState({ type: "create", project: null });
     setCreateName("");
     setRenameName("");
+    setCreateSuffix(createShortSuffix());
+    setCreateIntent("scratch");
+    setCreateStage("choose");
+    setIsSubmitting(false);
+  }, []);
+
+  const chooseCreateIntent = useCallback((intent: CreateIntent) => {
+    setCreateIntent(intent);
+    setCreateStage("form");
+    setCreateName("");
+    setCreateSuffix(createShortSuffix());
+    setIsSubmitting(false);
+  }, []);
+
+  const backToCreateChoice = useCallback(() => {
+    setCreateStage("choose");
+    setCreateIntent("scratch");
+    setCreateName("");
     setCreateSuffix(createShortSuffix());
     setIsSubmitting(false);
   }, []);
@@ -108,12 +134,16 @@ export function useProjectActions() {
         const data = (await response.json()) as { project?: { id: string } };
         const projectId = data.project?.id ?? roomId;
         closeDialog();
-        router.push(`/editor/${projectId}`);
+        router.push(
+          createIntent === "template"
+            ? `/editor/${projectId}?templates=1`
+            : `/editor/${projectId}`,
+        );
       } catch {
         setIsSubmitting(false);
       }
     },
-    [closeDialog, createName, createSlug, createSuffix, router],
+    [closeDialog, createIntent, createName, createSlug, createSuffix, router],
   );
 
   const handleRenameSubmit = useCallback(
@@ -184,6 +214,10 @@ export function useProjectActions() {
     dialogState,
     createName,
     setCreateName,
+    createIntent,
+    createStage,
+    chooseCreateIntent,
+    backToCreateChoice,
     renameName,
     setRenameName,
     createSlug,

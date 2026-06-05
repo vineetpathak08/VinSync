@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Canvas enhancements
+- Project creation flow
 
 ## Current Goal
 
-- Validate the shape panel drag-and-drop flow from `context/feature-specs/12-shape-panel.md`.
+- Add a create-project choice step so users can start from scratch or open the starter-template picker.
 
 ## Completed
 
@@ -17,7 +17,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea components under `components/ui/`.
 - Installed `lucide-react`.
 - Added `lib/utils.ts` with the reusable `cn()` class merging helper.
-- Updated global CSS theme tokens to the documented dark-only Ghost AI palette and shadcn-compatible variables.
+- Updated global CSS theme tokens to the documented dark-only VinSync palette and shadcn-compatible variables.
 - Editor chrome foundation from `context/feature-specs/02-editor-chrome.md`.
 - Added reusable editor navbar with left/center/right sections and sidebar toggle state icons.
 - Added floating project sidebar shell with shadcn tabs, empty states, close control, slide-in behavior, and New Project action.
@@ -53,14 +53,33 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added Liveblocks-synced nodes and edges with the React Flow MiniMap and dotted background.
 - Shape panel from `context/feature-specs/12-shape-panel.md`.
 - Added the floating shape toolbar with draggable shape payloads and drop-to-create nodes.
+- Node shape rendering and drag preview from `context/feature-specs/13-node-shape.md`.
+- Replaced placeholder nodes with CSS/SVG shape rendering and added drag ghost preview.
+- Node color palette foundation from `context/feature-specs/15-node-color-toolbar.md`.
+- Edge behavior implementation from `context/feature-specs/16-edge-behavior.md`.
+  - Right-click connections now create sigmoidal edges; left-click connections create straight edges.
+  - Click-to-click connection behavior implemented: edges attach to the exact clicked handle IDs and the routing mode is persisted on the edge (`pathStyle`) so the shape survives refresh, undo/redo, and collaboration.
+- Floating control bar (zoom + undo/redo) and keyboard shortcuts from `context/feature-specs/17-canvas-ergonomics.md.md`.
+- Floating control bar (zoom + undo/redo) and keyboard shortcuts from `context/feature-specs/17-canvas-ergonomics.md.md`.
+- Canvas ergonomics implemented: floating control bar and keyboard shortcuts wired to React Flow and Liveblocks history.
+- Edge behavior foundation from `context/feature-specs/16-edge-behavior.md`.
+- Canvas edge renderer stability update.
+  - Replaced the edge label portal path with React Flow's viewport portal and guarded label rendering behind finite geometry checks to prevent foreignObject and NaN coordinate warnings.
+- Canvas edge routing stabilization.
+  - Self-connections now render as explicit loop curves and all non-self edges use curved routing that avoids straight-line fallbacks.
+- Starter templates modal layout refinement.
+  - Widened the import template dialog at responsive breakpoints so template cards, previews, descriptions, and import actions fit inside the outer modal card.
+- Project creation chooser flow.
+  - Added a first-step create dialog that lets users choose between building from scratch or importing an existing template.
+  - Template-based creation now opens the starter-template picker automatically in the new workspace.
 
 ## In Progress
 
-- Validation and polish for the shape panel drag-and-drop flow.
+- Add the floating node color toolbar and paired text/background color updates for canvas nodes.
 
 ## Next Up
 
-- Re-run `npm run build` once validation is complete.
+- Continue the floating node color toolbar and paired text/background color updates for canvas nodes.
 
 ## Open Questions
 
@@ -95,3 +114,9 @@ Update this file whenever the current phase, active feature, or implementation s
 - Installed missing Liveblocks server dependency, aligned identifyUser usage, and made Liveblocks client creation lazy to avoid build-time env failures.
 - Updated the canvas surface styling with a dotted grid and bordered frame to match the requested white-dot canvas look.
 - Added the shape panel, drag-and-drop payloads, and a basic canvas node renderer for `context/feature-specs/12-shape-panel.md`.
+- Fixed React Flow nodeTypes typing to wrap `CanvasNodeRenderer` with a `NodeProps`-compatible component.
+- Implemented custom canvas edges, four-side node handles, and inline edge label editing with a clean build validation pass.
+- Hardened the edge renderer so label overlays no longer emit foreignObject or NaN coordinate warnings in the editor room.
+- Updated edge routing so self-loops render as circular curves and normal edges no longer fall back to straight lines.
+- Widened the starter templates import modal by overriding the base dialog's small breakpoint width cap in the feature-level component.
+- Added a two-step project creation modal with scratch vs template choices and a route flag that opens the starter-template picker in new workspaces.

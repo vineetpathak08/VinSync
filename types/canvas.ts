@@ -14,6 +14,8 @@ export const NODE_COLORS = [
   { fill: "#062822", text: "#0AC7B4" },
 ] as const;
 
+export const DEFAULT_NODE_COLOR = NODE_COLORS[0];
+
 export const NODE_SHAPES = [
   "rectangle",
   "diamond",
@@ -32,9 +34,15 @@ export interface CanvasNodeData {
   shape: CanvasNodeShape;
 }
 
+export interface CanvasEdgeData extends Record<string, unknown> {
+  label?: string;
+  pathStyle?: "straight" | "sigmoid";
+  showArrow?: boolean;
+}
+
 export type CanvasNode = Node<
   CanvasNodeData & Record<string, unknown>,
   typeof CANVAS_NODE_TYPE
 >;
 
-export type CanvasEdge = Edge<Record<string, unknown>, typeof CANVAS_EDGE_TYPE>;
+export type CanvasEdge = Edge<CanvasEdgeData, typeof CANVAS_EDGE_TYPE>;

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ghost AI",
-  description: "Collaborative AI system design workspace",
+  title: "VinSync",
+  description: "Collaborative system design workspace",
 };
 
 const clerkAppearance = {

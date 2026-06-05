@@ -7,9 +7,9 @@ export default function SignInPage() {
         <section className="hidden flex-col justify-between gap-10 bg-subtle p-10 lg:flex">
           <div className="flex items-center gap-3 text-sm font-medium text-copy-primary">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-surface-border bg-base text-brand">
-              GA
+              VS
             </span>
-            Ghost AI
+            VinSync
           </div>
 
           <div className="space-y-4">

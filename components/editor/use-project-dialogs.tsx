@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { EditorDialogPattern } from "@/components/editor/editor-dialog-pattern";
 import { useProjectActions } from "@/hooks/use-project-actions";
 import type { ProjectSummary } from "@/types/project";
+import { ArrowRight, Layout, Sparkles } from "lucide-react";
 
 interface ProjectDialogActions {
   openCreate: () => void;
@@ -27,6 +28,10 @@ function ProjectDialogs({
   dialogState,
   createName,
   setCreateName,
+  createIntent,
+  createStage,
+  chooseCreateIntent,
+  backToCreateChoice,
   renameName,
   setRenameName,
   roomIdPreview,
@@ -37,6 +42,14 @@ function ProjectDialogs({
   handleDeleteConfirm,
 }: ReturnType<typeof useProjectActions>) {
   const projectName = dialogState.project?.name;
+  const createTitle =
+    createIntent === "template"
+      ? "Create project with a template"
+      : "Create project";
+  const createDescription =
+    createIntent === "template"
+      ? "We’ll open the starter template picker as soon as the new workspace is ready."
+      : "Start a new architecture workspace.";
 
   return (
     <>
@@ -51,13 +64,20 @@ function ProjectDialogs({
         <DialogContent className="max-w-md border-0 bg-transparent p-0 shadow-none ring-0">
           <DialogTitle className="sr-only">Create project</DialogTitle>
           <DialogDescription className="sr-only">
-            Start a new architecture workspace.
+            Choose whether to start from a blank canvas or an existing starter
+            template.
           </DialogDescription>
           <EditorDialogPattern
-            title="Create project"
-            description="Start a new architecture workspace."
+            title={
+              createStage === "choose" ? "Start a new project" : createTitle
+            }
+            description={
+              createStage === "choose"
+                ? "Pick a starting point for the new workspace."
+                : createDescription
+            }
             footer={
-              <>
+              createStage === "choose" ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -66,44 +86,119 @@ function ProjectDialogs({
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  form="create-project"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Creating..." : "Create Project"}
-                </Button>
-              </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={backToCreateChoice}
+                    disabled={isSubmitting}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={closeDialog}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    form="create-project"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Creating..." : "Create Project"}
+                  </Button>
+                </>
+              )
             }
           >
-            <form
-              id="create-project"
-              className="grid gap-4"
-              onSubmit={handleCreateSubmit}
-            >
-              <div className="grid gap-2">
-                <label
-                  className="text-xs font-medium uppercase tracking-wide text-copy-faint"
-                  htmlFor="project-name"
+            {createStage === "choose" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className="group grid h-full gap-3 rounded-2xl border border-surface-border bg-surface/70 p-4 text-left transition-colors hover:border-brand hover:bg-accent-dim"
+                  onClick={() => chooseCreateIntent("scratch")}
                 >
-                  Project name
-                </label>
-                <Input
-                  id="project-name"
-                  placeholder="Architecture workspace"
-                  value={createName}
-                  onChange={(event) => setCreateName(event.target.value)}
-                />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-base/80 text-copy-secondary transition-colors group-hover:text-brand">
+                    <Layout className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold text-copy-primary">
+                      Build from scratch
+                    </p>
+                    <p className="text-sm leading-5 text-copy-muted">
+                      Start with a blank workspace and design the architecture
+                      yourself.
+                    </p>
+                  </div>
+                  <div className="mt-auto flex items-center gap-2 text-sm font-medium text-copy-secondary group-hover:text-brand">
+                    Continue
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className="group grid h-full gap-3 rounded-2xl border border-surface-border bg-surface/70 p-4 text-left transition-colors hover:border-brand hover:bg-accent-dim"
+                  onClick={() => chooseCreateIntent("template")}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-base/80 text-copy-secondary transition-colors group-hover:text-brand">
+                    <Sparkles className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold text-copy-primary">
+                      Import existing template
+                    </p>
+                    <p className="text-sm leading-5 text-copy-muted">
+                      Create the project first, then pick a starter diagram to
+                      load.
+                    </p>
+                  </div>
+                  <div className="mt-auto flex items-center gap-2 text-sm font-medium text-copy-secondary group-hover:text-brand">
+                    Choose template
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </div>
+                </button>
               </div>
-              <div className="grid gap-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-copy-faint">
-                  Room ID
-                </p>
-                <div className="rounded-xl border border-surface-border bg-subtle/70 px-3 py-2 text-xs text-copy-muted">
-                  <span className="text-copy-primary">{roomIdPreview}</span>
+            ) : (
+              <form
+                id="create-project"
+                className="grid gap-4"
+                onSubmit={handleCreateSubmit}
+              >
+                <div className="grid gap-2">
+                  <label
+                    className="text-xs font-medium uppercase tracking-wide text-copy-faint"
+                    htmlFor="project-name"
+                  >
+                    Project name
+                  </label>
+                  <Input
+                    id="project-name"
+                    placeholder="Architecture workspace"
+                    value={createName}
+                    onChange={(event) => setCreateName(event.target.value)}
+                  />
                 </div>
-              </div>
-            </form>
+                <div className="grid gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-copy-faint">
+                    Room ID
+                  </p>
+                  <div className="rounded-xl border border-surface-border bg-subtle/70 px-3 py-2 text-xs text-copy-muted">
+                    <span className="text-copy-primary">{roomIdPreview}</span>
+                  </div>
+                </div>
+                {createIntent === "template" ? (
+                  <div className="rounded-2xl border border-brand/20 bg-brand/10 p-3 text-sm text-copy-secondary">
+                    The workspace will open the starter template picker after
+                    creation.
+                  </div>
+                ) : null}
+              </form>
+            )}
           </EditorDialogPattern>
         </DialogContent>
       </Dialog>

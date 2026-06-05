@@ -4,14 +4,17 @@ import type { DragEvent, ReactNode } from "react";
 
 import type { CanvasNodeShape } from "@/types/canvas";
 
-export const SHAPE_DRAG_MIME = "application/x-ghostai-shape";
+export const SHAPE_DRAG_MIME = "application/x-vinsync-shape";
 
 export interface ShapeDragPayload {
   shape: CanvasNodeShape;
   size: { width: number; height: number };
 }
 
-export const SHAPE_DEFAULT_SIZES: Record<CanvasNodeShape, ShapeDragPayload["size"]> = {
+export const SHAPE_DEFAULT_SIZES: Record<
+  CanvasNodeShape,
+  ShapeDragPayload["size"]
+> = {
   rectangle: { width: 180, height: 110 },
   diamond: { width: 200, height: 140 },
   circle: { width: 140, height: 140 },
