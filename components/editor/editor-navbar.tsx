@@ -7,6 +7,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Share2,
+  Layout,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
@@ -22,6 +23,8 @@ interface EditorNavbarProps {
   showAiToggle?: boolean;
   isAiSidebarOpen?: boolean;
   onAiToggle?: () => void;
+  showTemplatesButton?: boolean;
+  onTemplatesClick?: () => void;
   rightSlot?: ReactNode;
   className?: string;
 }
@@ -35,6 +38,8 @@ export function EditorNavbar({
   showAiToggle = false,
   isAiSidebarOpen = false,
   onAiToggle,
+  showTemplatesButton = false,
+  onTemplatesClick,
   rightSlot,
   className,
 }: EditorNavbarProps) {
@@ -92,6 +97,19 @@ export function EditorNavbar({
             onClick={onAiToggle}
           >
             <AiIcon className="h-5 w-5" aria-hidden="true" />
+          </Button>
+        ) : null}
+        {showTemplatesButton && onTemplatesClick ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label="Starter templates"
+            onClick={onTemplatesClick}
+            className="gap-2 px-3"
+          >
+            <Layout className="h-4 w-4" aria-hidden="true" />
+            <span>Templates</span>
           </Button>
         ) : null}
         {rightSlot}

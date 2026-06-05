@@ -13,10 +13,18 @@ interface EditorRoomPageProps {
   params: Promise<{
     roomId: string;
   }>;
+  searchParams?: Promise<{
+    template?: string;
+    templates?: string;
+  }>;
 }
 
-export default async function EditorRoomPage({ params }: EditorRoomPageProps) {
+export default async function EditorRoomPage({
+  params,
+  searchParams,
+}: EditorRoomPageProps) {
   const { roomId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const identity = await getCurrentClerkIdentity();
 
   if (!identity.userId) {
@@ -37,6 +45,7 @@ export default async function EditorRoomPage({ params }: EditorRoomPageProps) {
       sharedProjects={sharedProjects}
       activeProjectId={project.id}
       navbarTitle={project.name}
+      startWithTemplatesOpen={resolvedSearchParams?.templates === "1"}
       showShareButton
       shareProjectId={project.id}
       shareProjectName={project.name}
@@ -57,7 +66,10 @@ export default async function EditorRoomPage({ params }: EditorRoomPageProps) {
         </div>
       }
     >
-      <LiveblocksCanvas roomId={project.id} />
+      <LiveblocksCanvas
+        roomId={project.id}
+        initialTemplateId={resolvedSearchParams?.template}
+      />
     </EditorLayout>
   );
 }
