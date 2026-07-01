@@ -9,7 +9,7 @@ export default async function EditorPage() {
     <EditorLayout
       ownedProjects={ownedProjects}
       sharedProjects={sharedProjects}
-      navbarTitle="Projects"
+      navbarTitle="VinSync"
     >
       <EditorHome />
     </EditorLayout>

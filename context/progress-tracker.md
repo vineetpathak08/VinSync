@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Project creation flow
+- Canvas enhancements
 
 ## Current Goal
 
-- Add a create-project choice step so users can start from scratch or open the starter-template picker.
+- Implement autosave and loading for collaborative canvas snapshots using Vercel Blob.
 
 ## Completed
 
@@ -41,6 +41,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added `lib/project-access.ts` helpers for Clerk identity and project access checks.
 - Added `/editor/[roomId]` server route with access checks and workspace placeholders.
 - Updated editor layout to support project titles, share/AI actions, and an AI sidebar placeholder.
+- Added `components/editor/ai-sidebar.tsx` and wired it into `EditorLayout` and `app/editor/[roomId]/page.tsx` (UI only, per `context/feature-specs/20-ai-sidebar-shell.md`).
 - Highlighted the active workspace in the project sidebar.
 - Share dialog from `context/feature-specs/09-share-dialog.md`.
 - Added share dialog UI with invite, list, remove, and copy link flows.
@@ -67,19 +68,18 @@ Update this file whenever the current phase, active feature, or implementation s
   - Replaced the edge label portal path with React Flow's viewport portal and guarded label rendering behind finite geometry checks to prevent foreignObject and NaN coordinate warnings.
 - Canvas edge routing stabilization.
   - Self-connections now render as explicit loop curves and all non-self edges use curved routing that avoids straight-line fallbacks.
-- Starter templates modal layout refinement.
-  - Widened the import template dialog at responsive breakpoints so template cards, previews, descriptions, and import actions fit inside the outer modal card.
-- Project creation chooser flow.
-  - Added a first-step create dialog that lets users choose between building from scratch or importing an existing template.
-  - Template-based creation now opens the starter-template picker automatically in the new workspace.
+- Canvas autosave and blob-backed loading.
+  - Added `PUT /api/projects/[projectId]/canvas` and `GET /api/projects/[projectId]/canvas` with Prisma-backed project metadata and Vercel Blob storage for canvas JSON.
+  - Added a debounced canvas autosave hook, project-scoped hydration guard, and editor save-status indicator in the navbar.
+  - Saved canvas state now skips hydration when the room already has active nodes or edges.
 
 ## In Progress
 
-- Add the floating node color toolbar and paired text/background color updates for canvas nodes.
+- None.
 
 ## Next Up
 
-- Continue the floating node color toolbar and paired text/background color updates for canvas nodes.
+- Resume the floating node color toolbar and paired text/background color updates for canvas nodes.
 
 ## Open Questions
 
@@ -91,6 +91,8 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Session Notes
 
+- Checked the Trigger.dev CLI failure and found the repo was missing a root `trigger.config.ts` and a task directory scaffold.
+- Added a root Trigger.dev config that reads `TRIGGER_PROJECT_REF` and points `dirs` at `./trigger`.
 - Started design system implementation by reading required project context and the design-system feature spec.
 - Initialized shadcn/ui with the Radix Nova preset, CSS variables enabled, `components.json`, `components/ui/button.tsx`, and `lib/utils.ts`.
 - Added requested shadcn/ui primitives: Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea; verified `lucide-react` is installed.
@@ -113,10 +115,12 @@ Update this file whenever the current phase, active feature, or implementation s
 - Started base canvas implementation from `context/feature-specs/11-base-canvas.md` after reading the required project context, local Next.js 16 Server/Client Component docs, and Liveblocks React Flow guidance.
 - Installed missing Liveblocks server dependency, aligned identifyUser usage, and made Liveblocks client creation lazy to avoid build-time env failures.
 - Updated the canvas surface styling with a dotted grid and bordered frame to match the requested white-dot canvas look.
+- Initialized Trigger.dev with project ref `proj_mrcctcirtzvdffleznob`, creating `trigger.config.ts` and the local `trigger/` directory.
+- Pinned `@trigger.dev/sdk` and `@trigger.dev/build` to exact `4.4.6` versions so the Trigger.dev CLI can run without the version-mismatch guard.
+- Added a minimal `trigger/hello.ts` task so the Trigger.dev dev server has a discoverable task file.
+- Verified `npx trigger.dev@latest dev` reaches the ready state with the local worker online.
 - Added the shape panel, drag-and-drop payloads, and a basic canvas node renderer for `context/feature-specs/12-shape-panel.md`.
 - Fixed React Flow nodeTypes typing to wrap `CanvasNodeRenderer` with a `NodeProps`-compatible component.
 - Implemented custom canvas edges, four-side node handles, and inline edge label editing with a clean build validation pass.
 - Hardened the edge renderer so label overlays no longer emit foreignObject or NaN coordinate warnings in the editor room.
 - Updated edge routing so self-loops render as circular curves and normal edges no longer fall back to straight lines.
-- Widened the starter templates import modal by overriding the base dialog's small breakpoint width cap in the feature-level component.
-- Added a two-step project creation modal with scratch vs template choices and a route flag that opens the starter-template picker in new workspaces.

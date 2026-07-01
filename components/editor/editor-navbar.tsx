@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -8,10 +8,18 @@ import {
   PanelRightOpen,
   Share2,
   Layout,
+  Check,
+  Clock3,
+  CloudOff,
+  Loader2,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
+import {
+  useEditorSaveStatus,
+  type CanvasSaveStatus,
+} from "@/components/editor/editor-save-status";
 import { cn } from "@/lib/utils";
 
 interface EditorNavbarProps {
@@ -45,6 +53,23 @@ export function EditorNavbar({
 }: EditorNavbarProps) {
   const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen;
   const AiIcon = isAiSidebarOpen ? PanelRightClose : PanelRightOpen;
+  const { saveStatus } = useEditorSaveStatus();
+
+  const saveLabelMap: Record<CanvasSaveStatus, string> = {
+    idle: "Ready",
+    saving: "Saving",
+    saved: "Saved",
+    error: "Error",
+  };
+
+  const saveIconMap: Record<CanvasSaveStatus, ComponentType<{ className?: string }>> = {
+    idle: Clock3,
+    saving: Loader2,
+    saved: Check,
+    error: CloudOff,
+  };
+
+  const SaveIcon = saveIconMap[saveStatus];
 
   return (
     <header
@@ -112,6 +137,40 @@ export function EditorNavbar({
             <span>Templates</span>
           </Button>
         ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Canvas save status: ${saveLabelMap[saveStatus]}`}
+          className="gap-2 px-3"
+        >
+          <SaveIcon
+            className={cn(
+              "h-4 w-4",
+              saveStatus === "saving" && "animate-spin",
+              saveStatus === "saved" && "text-state-success",
+              saveStatus === "error" && "text-state-error",
+              saveStatus === "idle" && "text-copy-muted",
+            )}
+            aria-hidden="true"
+          />
+          <span>Save</span>
+          <span
+            className={cn(
+              "rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.18em]",
+              saveStatus === "saving" &&
+                "border-brand/40 bg-accent-dim text-brand",
+              saveStatus === "saved" &&
+                "border-state-success/40 bg-state-success/10 text-state-success",
+              saveStatus === "error" &&
+                "border-state-error/40 bg-state-error/10 text-state-error",
+              saveStatus === "idle" &&
+                "border-surface-border bg-surface text-copy-muted",
+            )}
+          >
+            {saveLabelMap[saveStatus]}
+          </span>
+        </Button>
         {rightSlot}
         <UserButton />
       </div>
