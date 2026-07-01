@@ -8,6 +8,7 @@ import {
   getCurrentClerkIdentity,
   getProjectByAccess,
 } from "@/lib/project-access";
+import AiSidebar from "@/components/editor/ai-sidebar";
 
 interface EditorRoomPageProps {
   params: Promise<{
@@ -50,21 +51,7 @@ export default async function EditorRoomPage({
       shareProjectId={project.id}
       shareProjectName={project.name}
       showAiToggle
-      rightSidebar={
-        <div className="flex h-full flex-col gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-copy-faint">
-              AI assistant
-            </p>
-            <p className="text-sm text-copy-muted">
-              AI chat tools will appear here soon.
-            </p>
-          </div>
-          <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-surface-border-subtle bg-base/60 px-4 text-center text-sm text-copy-muted">
-            AI sidebar placeholder
-          </div>
-        </div>
-      }
+      rightSidebar={<AiSidebar />}
     >
       <LiveblocksCanvas
         roomId={project.id}

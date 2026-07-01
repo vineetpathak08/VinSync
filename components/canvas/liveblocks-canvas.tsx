@@ -21,13 +21,21 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { Cursors, useLiveblocksFlow } from "@liveblocks/react-flow";
-import { useUndo, useRedo, useCanUndo, useCanRedo } from "@liveblocks/react";
+import {
+  useUndo,
+  useRedo,
+  useCanUndo,
+  useCanRedo,
+  useMyPresence,
+  useOthers,
+} from "@liveblocks/react";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import {
   ClientSideSuspense,
   LiveblocksProvider,
   RoomProvider,
 } from "@liveblocks/react/suspense";
+import { UserButton } from "@clerk/nextjs";
 
 import {
   CanvasNodeRenderer,
@@ -51,6 +59,8 @@ import { CanvasEdgeRenderer } from "@/components/canvas/canvas-edge";
 import CANVAS_TEMPLATES, {
   instantiateCanvasTemplate,
 } from "@/components/editor/starter-templates";
+import { normalizeCanvasSnapshot } from "@/lib/canvas-storage";
+import { useCanvasAutosave } from "@/hooks/use-canvas-autosave";
 
 interface LiveblocksCanvasProps {
   roomId: string;
@@ -117,8 +127,10 @@ function CanvasLoadingState() {
 }
 
 function SyncedReactFlowCanvasInner({
+  projectId,
   initialTemplateId,
 }: {
+  projectId: string;
   initialTemplateId?: string | null;
 }) {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
@@ -141,12 +153,22 @@ function SyncedReactFlowCanvasInner({
   const edgesRef = useRef(edges);
   const dragPayloadRef = useRef<ShapeDragPayload | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [myPresence, updateMyPresence] = useMyPresence();
+  const others = useOthers();
+  const lastPresenceUpdateRef = useRef<number>(0);
   const hasAppliedInitialZoomRef = useRef(false);
+  const [hasCheckedSavedCanvas, setHasCheckedSavedCanvas] = useState(false);
   const [dragPreview, setDragPreview] = useState<null | {
     shape: CanvasNodeShape;
     size: { width: number; height: number };
     position: { x: number; y: number };
   }>(null);
+  const { markSnapshotSaved } = useCanvasAutosave({
+    projectId,
+    nodes,
+    edges,
+    enabled: hasCheckedSavedCanvas,
+  });
 
   const replaceCanvas = useCallback(
     (nextNodes: CanvasNode[], nextEdges: CanvasEdge[]) => {
@@ -194,6 +216,70 @@ function SyncedReactFlowCanvasInner({
   useEffect(() => {
     edgesRef.current = edges;
   }, [edges]);
+
+  useEffect(() => {
+    if (hasCheckedSavedCanvas) {
+      return;
+    }
+
+    if (nodesRef.current.length > 0 || edgesRef.current.length > 0) {
+      setHasCheckedSavedCanvas(true);
+      markSnapshotSaved({ nodes: nodesRef.current, edges: edgesRef.current });
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadSavedCanvas = async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/canvas`);
+
+        if (response.status === 404) {
+          if (!isCancelled) {
+            setHasCheckedSavedCanvas(true);
+          }
+
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Canvas load failed with status ${response.status}`);
+        }
+
+        const payload = (await response.json()) as { canvas?: unknown };
+        const canvas = normalizeCanvasSnapshot(payload.canvas);
+
+        if (!canvas) {
+          throw new Error("Canvas load returned invalid data");
+        }
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (nodesRef.current.length > 0 || edgesRef.current.length > 0) {
+          setHasCheckedSavedCanvas(true);
+          markSnapshotSaved({ nodes: nodesRef.current, edges: edgesRef.current });
+          return;
+        }
+
+        replaceCanvas(canvas.nodes, canvas.edges);
+        markSnapshotSaved(canvas);
+        setHasCheckedSavedCanvas(true);
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Canvas load failed", error);
+          setHasCheckedSavedCanvas(true);
+        }
+      }
+    };
+
+    void loadSavedCanvas();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [hasCheckedSavedCanvas, markSnapshotSaved, projectId, replaceCanvas]);
 
   const handleLabelChange = useCallback(
     (id: string, label: string) => {
@@ -469,6 +555,7 @@ function SyncedReactFlowCanvasInner({
 
   useEffect(() => {
     if (
+      !hasCheckedSavedCanvas ||
       !initialTemplateId ||
       nodesRef.current.length > 0 ||
       edgesRef.current.length > 0
@@ -486,7 +573,7 @@ function SyncedReactFlowCanvasInner({
     const seed = `${template.id}-${Date.now()}`;
     const imported = instantiateCanvasTemplate(template, seed);
     replaceCanvas(imported.nodes, imported.edges);
-  }, [initialTemplateId, replaceCanvas]);
+  }, [hasCheckedSavedCanvas, initialTemplateId, replaceCanvas]);
 
   // Keyboard shortcuts (zoom + undo/redo)
   // Hook lives in hooks/useKeyboardShortcuts and ignores typing targets.
@@ -514,6 +601,31 @@ function SyncedReactFlowCanvasInner({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onMouseMove={(e) => {
+        const bounds = containerRef.current?.getBoundingClientRect();
+        if (!bounds) return;
+
+        const x = e.clientX - bounds.left;
+        const y = e.clientY - bounds.top;
+
+        const now = Date.now();
+        // throttle presence updates to ~20fps
+        if (now - lastPresenceUpdateRef.current < 50) return;
+        lastPresenceUpdateRef.current = now;
+
+        try {
+          updateMyPresence({ cursor: { x, y } });
+        } catch {
+          // ignore
+        }
+      }}
+      onMouseLeave={() => {
+        try {
+          updateMyPresence({ cursor: null });
+        } catch {
+          // ignore
+        }
+      }}
     >
       <ReactFlow<CanvasNode, CanvasEdge>
         className="ghost-canvas h-full w-full rounded-2xl border border-surface-border bg-base"
@@ -538,6 +650,110 @@ function SyncedReactFlowCanvasInner({
         />
         <Cursors />
       </ReactFlow>
+      {/* Presence avatars + current user (top-right) */}
+      <div className="pointer-events-none absolute top-4 right-4 z-40">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-surface/80 px-2 py-1 border border-surface-border shadow-sm">
+          {/* collaborator avatars */}
+          {others && others.length > 0 ? (
+            <div className="flex items-center -space-x-2">
+              {others.slice(0, 5).map((other) => {
+                const info: any = (other as any).info ?? {};
+                const name = info?.user?.name ?? info?.name ?? "Anonymous";
+                const avatar = info?.user?.avatar ?? info?.avatar ?? null;
+
+                const initials = name
+                  .split(" ")
+                  .map((s: string) => s[0])
+                  .slice(0, 2)
+                  .join("");
+
+                return avatar ? (
+                  <img
+                    key={other.connectionId}
+                    src={avatar}
+                    alt={name}
+                    className="h-8 w-8 rounded-full ring-2 ring-base/80 border border-surface-border"
+                  />
+                ) : (
+                  <div
+                    key={other.connectionId}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface text-xs font-semibold text-copy-primary ring-2 ring-base/80 border border-surface-border"
+                  >
+                    {initials}
+                  </div>
+                );
+              })}
+
+              {others.length > 5 ? (
+                <div className="ml-2 rounded-full bg-surface px-2 py-1 text-xs text-copy-muted">
+                  +{others.length - 5}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* divider only when collaborators exist */}
+          {others && others.length > 0 ? (
+            <div className="mx-2 h-6 w-px bg-surface-border" />
+          ) : null}
+
+          {/* current user */}
+          <div className="flex items-center">
+            <UserButton />
+          </div>
+        </div>
+      </div>
+      {/* Live cursor overlays for other participants */}
+      <div className="pointer-events-none absolute inset-0 z-30">
+        {others &&
+          others
+            .map((other) => ({
+              connId: other.connectionId,
+              presence: (other as any).presence,
+              info: (other as any).info,
+            }))
+            .filter((o) => o.presence && o.presence.cursor)
+            .map((o) => {
+              const cursor = o.presence.cursor as {
+                x: number;
+                y: number;
+              } | null;
+              if (!cursor) return null;
+
+              const info = o.info ?? {};
+              const userInfo = info.user ?? info;
+              const name = userInfo?.name ?? info?.name ?? "Anonymous";
+              const color = userInfo?.color ?? info?.color ?? "#52A8FF";
+
+              return (
+                <div
+                  key={o.connId}
+                  className="transition-transform duration-75 ease-out"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    transform: `translate(${cursor.x}px, ${cursor.y}px) translate(-50%, -50%)`,
+                    pointerEvents: "none",
+                    willChange: "transform",
+                  }}
+                >
+                  <div className="flex flex-col items-center">
+                    <div
+                      style={{ backgroundColor: color }}
+                      className="h-2 w-2 rounded-full"
+                    />
+                    <div
+                      style={{ borderColor: color }}
+                      className="mt-2 rounded-md border bg-surface/90 px-2 py-0.5 text-xs text-copy-primary"
+                    >
+                      {name}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+      </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
         <ShapePanel className="pointer-events-auto" />
       </div>
@@ -621,7 +837,7 @@ function SyncedReactFlowCanvasInner({
 function SyncedReactFlowCanvas() {
   return (
     <ReactFlowProvider>
-      <SyncedReactFlowCanvasInner />
+      <SyncedReactFlowCanvasInner projectId="" />
     </ReactFlowProvider>
   );
 }
@@ -635,12 +851,13 @@ export function LiveblocksCanvas({
       <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
         <RoomProvider
           id={roomId}
-          initialPresence={{ cursor: null, isThinking: false }}
+          initialPresence={{ cursor: null, thinking: false }}
         >
           <CanvasErrorBoundary>
             <ClientSideSuspense fallback={<CanvasLoadingState />}>
               <ReactFlowProvider>
                 <SyncedReactFlowCanvasInner
+                  projectId={roomId}
                   initialTemplateId={initialTemplateId}
                 />
               </ReactFlowProvider>
