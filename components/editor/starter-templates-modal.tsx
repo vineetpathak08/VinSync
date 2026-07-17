@@ -1,221 +1,237 @@
-"use client";
+"use client"
 
-import { useMemo } from "react";
-import { Layout } from "lucide-react";
-
-import { EditorDialogPattern } from "@/components/editor/editor-dialog-pattern";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
+  DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Download } from "lucide-react"
+import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/components/editor/starter-templates"
 
-import CANVAS_TEMPLATES, {
-  instantiateCanvasTemplate,
-  type CanvasTemplate,
-} from "./starter-templates";
+// Internal viewBox coordinate space — nodes are scaled/offset to fit here.
+const VB_W = 500
+const VB_H = 280
+const VB_PAD = 20
 
-type PreviewNodeStyle = {
-  width?: number;
-  height?: number;
-};
-
-type PreviewNodeData = {
-  color?: {
-    fill?: string;
-  };
-  shape?: string;
-};
-
-interface StarterTemplatesModalProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+interface TemplatePreviewProps {
+  template: CanvasTemplate
 }
 
-function Preview({ template }: { template: CanvasTemplate }) {
-  const view = useMemo(() => {
-    const nodes = template.nodes;
-    if (nodes.length === 0) return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
+function TemplatePreview({ template }: TemplatePreviewProps) {
+  if (template.nodes.length === 0) return null
 
-    for (const n of nodes) {
-      const style = n.style as PreviewNodeStyle | undefined;
-      const w = style?.width ?? 100;
-      const h = style?.height ?? 60;
-      minX = Math.min(minX, n.position.x - w / 2);
-      minY = Math.min(minY, n.position.y - h / 2);
-      maxX = Math.max(maxX, n.position.x + w / 2);
-      maxY = Math.max(maxY, n.position.y + h / 2);
-    }
+  const minX = Math.min(...template.nodes.map((nd) => nd.position.x))
+  const minY = Math.min(...template.nodes.map((nd) => nd.position.y))
+  const maxX = Math.max(...template.nodes.map((nd) => nd.position.x + (nd.width ?? 140)))
+  const maxY = Math.max(...template.nodes.map((nd) => nd.position.y + (nd.height ?? 60)))
 
-    return { minX, minY, maxX, maxY };
-  }, [template.nodes]);
+  const bw = maxX - minX || 1
+  const bh = maxY - minY || 1
+  const scale = Math.min(
+    (VB_W - VB_PAD * 2) / bw,
+    (VB_H - VB_PAD * 2) / bh
+  )
 
-  const width = Math.max(1, view.maxX - view.minX);
-  const height = Math.max(1, view.maxY - view.minY);
-  const padding = 28;
-  const innerWidth = width + padding * 2;
-  const innerHeight = height + padding * 2;
+  const offsetX = (VB_W - bw * scale) / 2 - minX * scale
+  const offsetY = (VB_H - bh * scale) / 2 - minY * scale
 
-  const transform = (x: number, y: number) => ({
-    x: padding + (x - view.minX),
-    y: padding + (y - view.minY),
-  });
-
-  const filterId = `starter-template-shadow-${template.id}`;
+  const nodeMap = new Map(template.nodes.map((nd) => [nd.id, nd]))
+  const markerId = `arr-${template.id}`
 
   return (
-    <svg
-      viewBox={`0 0 ${innerWidth} ${innerHeight}`}
-      preserveAspectRatio="xMidYMid meet"
-      className="h-full w-full rounded-2xl bg-base/70"
-    >
-      <defs>
-        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.06" />
-        </filter>
-      </defs>
-      {/* edges */}
-      {template.edges.map((e) => {
-        const s = template.nodes.find((n) => n.id === e.source);
-        const t = template.nodes.find((n) => n.id === e.target);
-        if (!s || !t) return null;
-        const p1 = transform(s.position.x, s.position.y);
-        const p2 = transform(t.position.x, t.position.y);
-        return (
-          <line
-            key={e.id}
-            x1={p1.x}
-            y1={p1.y}
-            x2={p2.x}
-            y2={p2.y}
-            stroke="rgba(200,200,200,0.4)"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-        );
-      })}
+    // Wrapper keeps the 500:280 aspect ratio at any card width.
+    <div className="w-full" style={{ aspectRatio: `${VB_W} / ${VB_H}` }}>
+      <svg
+        viewBox={`0 0 ${VB_W} ${VB_H}`}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden
+      >
+        <defs>
+          <marker
+            id={markerId}
+            viewBox="0 0 8 8"
+            refX="7"
+            refY="4"
+            markerWidth="5"
+            markerHeight="5"
+            orient="auto"
+          >
+            <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(255,255,255,0.3)" />
+          </marker>
+        </defs>
 
-      {/* nodes */}
-      {template.nodes.map((n) => {
-        const p = transform(n.position.x, n.position.y);
-        const style = n.style as PreviewNodeStyle | undefined;
-        const data = n.data as PreviewNodeData | undefined;
-        const w = style?.width ?? 100;
-        const h = style?.height ?? 60;
-        const color = data?.color?.fill ?? "#111";
-        const shape = data?.shape ?? "rectangle";
-
-        if (shape === "circle") {
+        {/* edges drawn before nodes so they sit underneath */}
+        {template.edges.map((edge) => {
+          const src = nodeMap.get(edge.source)
+          const tgt = nodeMap.get(edge.target)
+          if (!src || !tgt) return null
+          const sx = (src.position.x + (src.width ?? 140) / 2) * scale + offsetX
+          const sy = (src.position.y + (src.height ?? 60) / 2) * scale + offsetY
+          const tx = (tgt.position.x + (tgt.width ?? 140) / 2) * scale + offsetX
+          const ty = (tgt.position.y + (tgt.height ?? 60) / 2) * scale + offsetY
           return (
-            <circle
-              key={n.id}
-              cx={p.x}
-              cy={p.y}
-              r={Math.max(6, Math.min(w, h) / 2)}
-              fill={color}
-              stroke="rgba(255,255,255,0.06)"
+            <line
+              key={edge.id}
+              x1={sx}
+              y1={sy}
+              x2={tx}
+              y2={ty}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth={1.5}
+              markerEnd={`url(#${markerId})`}
             />
-          );
-        }
+          )
+        })}
 
-        return (
-          <rect
-            key={n.id}
-            x={p.x - Math.max(8, w / 2)}
-            y={p.y - Math.max(6, h / 2)}
-            width={Math.max(16, w)}
-            height={Math.max(12, h)}
-            rx={6}
-            fill={color}
-            stroke="rgba(255,255,255,0.06)"
-            filter={`url(#${filterId})`}
-          />
-        );
-      })}
-    </svg>
-  );
+        {template.nodes.map((nd) => {
+          const x = nd.position.x * scale + offsetX
+          const y = nd.position.y * scale + offsetY
+          const nw = (nd.width ?? 140) * scale
+          const nh = (nd.height ?? 60) * scale
+          const fill = nd.data.color ?? "#1F1F1F"
+          const stroke = "rgba(255,255,255,0.2)"
+          const sw = 1
+          const shape = nd.data.shape ?? "rectangle"
+
+          if (shape === "circle") {
+            return (
+              <ellipse
+                key={nd.id}
+                cx={x + nw / 2}
+                cy={y + nh / 2}
+                rx={nw / 2}
+                ry={nh / 2}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={sw}
+              />
+            )
+          }
+          if (shape === "diamond") {
+            return (
+              <polygon
+                key={nd.id}
+                points={`${x + nw / 2},${y} ${x + nw},${y + nh / 2} ${x + nw / 2},${y + nh} ${x},${y + nh / 2}`}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={sw}
+              />
+            )
+          }
+          if (shape === "hexagon") {
+            return (
+              <polygon
+                key={nd.id}
+                points={`${x + nw * 0.25},${y} ${x + nw * 0.75},${y} ${x + nw},${y + nh / 2} ${x + nw * 0.75},${y + nh} ${x + nw * 0.25},${y + nh} ${x},${y + nh / 2}`}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={sw}
+              />
+            )
+          }
+          if (shape === "pill") {
+            return (
+              <rect
+                key={nd.id}
+                x={x}
+                y={y}
+                width={nw}
+                height={nh}
+                rx={nh / 2}
+                ry={nh / 2}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={sw}
+              />
+            )
+          }
+          // rectangle and cylinder both render as rounded rect
+          return (
+            <rect
+              key={nd.id}
+              x={x}
+              y={y}
+              width={nw}
+              height={nh}
+              rx={shape === "cylinder" ? Math.min(nw * 0.12, 6) : 4}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={sw}
+            />
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
+interface StarterTemplatesModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onImport: (template: CanvasTemplate) => void
 }
 
 export function StarterTemplatesModal({
-  isOpen,
+  open,
   onOpenChange,
+  onImport,
 }: StarterTemplatesModalProps) {
-  const handleImport = (template: CanvasTemplate) => {
-    const importSeed = `${template.id}-${Date.now()}`;
-    const { nodes, edges } = instantiateCanvasTemplate(template, importSeed);
-
-    window.dispatchEvent(
-      new CustomEvent("vinsync:replace-canvas", { detail: { nodes, edges } }),
-    );
-
-    onOpenChange(false);
-  };
+  function handleImport(template: CanvasTemplate) {
+    onImport(template)
+    onOpenChange(false)
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none overflow-hidden border-0 bg-transparent p-0 shadow-none ring-0 sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] lg:max-w-312 xl:max-w-368">
-        <DialogTitle className="sr-only">Starter templates</DialogTitle>
-        <DialogDescription className="sr-only">
-          Choose a canvas template to import.
-        </DialogDescription>
-        <EditorDialogPattern
-          className="grid max-h-[calc(100dvh-1rem)] w-full gap-4 overflow-hidden p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-5 lg:p-6"
-          title={"Import Template"}
-          description={
-            "Choose a starter template to pre-populate your canvas. Any existing nodes will be replaced — use z to undo."
-          }
-        >
-          <div className="grid min-h-0 min-w-0 gap-4 overflow-y-auto pr-1">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {CANVAS_TEMPLATES.map((template) => (
-                <article
-                  key={template.id}
-                  className="grid overflow-hidden rounded-3xl border border-surface-border bg-surface/70 shadow-sm md:grid-cols-[10rem_minmax(0,1fr)] lg:grid-cols-[12rem_minmax(0,1fr)]"
-                >
-                  <div className="border-b border-surface-border bg-base/80 p-3 md:border-b-0 md:border-r md:p-3">
-                    <div className="aspect-16/10 w-full overflow-hidden rounded-2xl bg-base/90 md:aspect-auto md:h-full">
-                      <Preview template={template} />
-                    </div>
-                  </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[min(1520px,95vw)]! gap-0 p-0">
+        <DialogHeader className="border-b border-border-default px-10 py-7">
+          <DialogTitle className="text-xl">Import Template</DialogTitle>
+          <DialogDescription>
+            Choose a starter template to pre-populate your canvas. Any existing nodes will be
+            replaced — use <kbd className="rounded border border-border-default bg-bg-elevated px-1 py-0.5 font-mono text-[11px] text-text-muted">⌘Z</kbd> to undo.
+          </DialogDescription>
+        </DialogHeader>
 
-                  <div className="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-base/80 text-copy-secondary shadow-inner shadow-black/10 sm:h-11 sm:w-11">
-                        <Layout className="h-5 w-5" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-semibold text-copy-primary sm:text-[15px]">
-                          {template.name}
-                        </p>
-                        <p className="text-sm leading-5 text-copy-muted sm:text-[15px]">
-                          {template.description}
-                        </p>
-                      </div>
-                    </div>
+        <div className="overflow-y-auto px-10 py-8">
+          <div className="grid grid-cols-3 gap-8">
+            {CANVAS_TEMPLATES.map((template) => (
+              <div
+                key={template.id}
+                className="flex flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-elevated transition-colors hover:border-border-subtle"
+              >
+                {/* Preview */}
+                <div className="bg-bg-base px-5 pt-5 pb-4">
+                  <TemplatePreview template={template} />
+                </div>
 
-                    <div className="mt-auto pt-1">
-                      <Button
-                        className="w-full gap-2"
-                        onClick={() => handleImport(template)}
-                      >
-                        Import
-                      </Button>
-                    </div>
+                {/* Card body */}
+                <div className="flex flex-1 flex-col gap-4 border-t border-border-default p-5">
+                  <div>
+                    <p className="text-base font-semibold text-text-primary">{template.name}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-text-muted">
+                      {template.description}
+                    </p>
                   </div>
-                </article>
-              ))}
-            </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-auto w-full gap-2"
+                    onClick={() => handleImport(template)}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Import
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
-        </EditorDialogPattern>
+        </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
-
-export default StarterTemplatesModal;

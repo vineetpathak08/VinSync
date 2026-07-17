@@ -1,131 +1,73 @@
-"use client";
+"use client"
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { CanvasNode, CanvasEdge } from "@/types/canvas"
 
-import { useEditorSaveStatus } from "@/components/editor/editor-save-status";
-import { serializeCanvasSnapshot } from "@/lib/canvas-storage";
-import type { CanvasEdge, CanvasNode, CanvasSnapshot } from "@/types/canvas";
+export type SaveStatus = "idle" | "saving" | "saved" | "error"
 
-interface UseCanvasAutosaveOptions {
-  projectId: string;
-  nodes: CanvasNode[];
-  edges: CanvasEdge[];
-  enabled?: boolean;
-  debounceMs?: number;
-}
+export function useCanvasAutosave(
+  projectId: string,
+  nodes: CanvasNode[],
+  edges: CanvasEdge[]
+): { status: SaveStatus; save: () => void } {
+  const [status, setStatus] = useState<SaveStatus>("idle")
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasMountedRef = useRef(false)
 
-interface CanvasAutosaveHandle {
-  markSnapshotSaved: (snapshot: CanvasSnapshot) => void;
-}
-
-export function useCanvasAutosave({
-  projectId,
-  nodes,
-  edges,
-  enabled = true,
-  debounceMs = 900,
-}: UseCanvasAutosaveOptions): CanvasAutosaveHandle {
-  const { setSaveStatus } = useEditorSaveStatus();
-  const lastSavedSnapshotRef = useRef<string>("");
-  const debounceTimerRef = useRef<number | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  const markSnapshotSaved = useCallback(
-    (snapshot: CanvasSnapshot) => {
-      lastSavedSnapshotRef.current = serializeCanvasSnapshot(snapshot);
-      setSaveStatus("saved");
-    },
-    [setSaveStatus],
-  );
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+  const projectIdRef = useRef(projectId)
 
   useEffect(() => {
-    if (!enabled) {
-      return;
+    nodesRef.current = nodes
+    edgesRef.current = edges
+    projectIdRef.current = projectId
+  })
+
+  // Reset to idle after showing saved/error so the button returns to "Save".
+  useEffect(() => {
+    if (status !== "saved" && status !== "error") return
+    resetTimerRef.current = setTimeout(() => setStatus("idle"), 2000)
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
+  }, [status])
+
+  const doSave = useCallback(async () => {
+    setStatus("saving")
+    try {
+      const res = await fetch(`/api/projects/${projectIdRef.current}/canvas`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodes: nodesRef.current, edges: edgesRef.current }),
+      })
+      setStatus(res.ok ? "saved" : "error")
+    } catch {
+      setStatus("error")
+    }
+  }, [])
+
+  useEffect(() => {
+    // Skip saving on the initial render before any user/collaboration changes.
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      return
     }
 
-    const snapshot: CanvasSnapshot = { nodes, edges };
-    const serializedSnapshot = serializeCanvasSnapshot(snapshot);
-
-    if (
-      nodes.length === 0 &&
-      edges.length === 0 &&
-      lastSavedSnapshotRef.current === ""
-    ) {
-      return;
-    }
-
-    if (serializedSnapshot === lastSavedSnapshotRef.current) {
-      return;
-    }
-
-    setSaveStatus("saving");
-
-    if (debounceTimerRef.current) {
-      window.clearTimeout(debounceTimerRef.current);
-    }
-
-    debounceTimerRef.current = window.setTimeout(() => {
-      const controller = new AbortController();
-
-      abortControllerRef.current?.abort();
-      abortControllerRef.current = controller;
-
-      const saveCanvas = async () => {
-        try {
-          const response = await fetch(
-            `/api/projects/${projectId}/canvas`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: serializedSnapshot,
-              signal: controller.signal,
-            },
-          );
-
-          if (!response.ok) {
-            throw new Error(`Canvas save failed with status ${response.status}`);
-          }
-
-          const payload = (await response.json()) as {
-            canvas?: CanvasSnapshot;
-          };
-
-          const savedSnapshot = payload.canvas ?? snapshot;
-          lastSavedSnapshotRef.current = serializeCanvasSnapshot(savedSnapshot);
-          setSaveStatus("saved");
-        } catch (error) {
-          if (controller.signal.aborted) {
-            return;
-          }
-
-          console.error("Canvas autosave failed", error);
-          setSaveStatus("error");
-        }
-      };
-
-      void saveCanvas();
-    }, debounceMs);
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(doSave, 2000)
 
     return () => {
-      if (debounceTimerRef.current) {
-        window.clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-    };
-  }, [debounceMs, edges, enabled, nodes, projectId, setSaveStatus]);
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges])
 
-  useEffect(
-    () => () => {
-      if (debounceTimerRef.current) {
-        window.clearTimeout(debounceTimerRef.current);
-      }
+  const save = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    doSave()
+  }, [doSave])
 
-      abortControllerRef.current?.abort();
-    },
-    [],
-  );
-
-  return { markSnapshotSaved };
+  return { status, save }
 }

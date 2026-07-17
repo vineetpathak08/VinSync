@@ -1,55 +1,60 @@
-import { useEffect } from "react";
+"use client"
 
-type AnyFlow = any;
+import { useEffect } from "react"
+import type { ReactFlowInstance } from "@xyflow/react"
 
-export default function useKeyboardShortcuts(
-  reactFlow: AnyFlow | null | undefined,
-  undo?: () => void,
-  redo?: () => void,
-) {
+interface Options {
+  reactFlow: ReactFlowInstance | null
+  undo: () => void
+  redo: () => void
+}
+
+function isEditable(el: Element | null): boolean {
+  if (!el) return false
+  const tag = (el as HTMLElement).tagName
+  if (tag === "INPUT" || tag === "TEXTAREA") return true
+  if ((el as HTMLElement).isContentEditable) return true
+  return false
+}
+
+export function useKeyboardShortcuts({ reactFlow, undo, redo }: Options) {
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
-          return;
-        }
+    function onKeyDown(event: KeyboardEvent) {
+      if (isEditable(document.activeElement)) return
+
+      const meta = event.metaKey || event.ctrlKey
+
+      if (!meta && (event.key === "+" || event.key === "=")) {
+        event.preventDefault()
+        reactFlow?.zoomIn({ duration: 200 })
+        return
       }
 
-      // Zoom in: '+' or '='
-      if (e.key === "+" || e.key === "=") {
-        e.preventDefault();
-        reactFlow?.zoomIn?.({ duration: 200 });
-        return;
+      if (!meta && event.key === "-") {
+        event.preventDefault()
+        reactFlow?.zoomOut({ duration: 200 })
+        return
       }
 
-      // Zoom out: '-'
-      if (e.key === "-") {
-        e.preventDefault();
-        reactFlow?.zoomOut?.({ duration: 200 });
-        return;
+      if (meta && event.shiftKey && event.key === "z") {
+        event.preventDefault()
+        redo()
+        return
       }
 
-      const cmd = e.ctrlKey || e.metaKey;
-      const key = e.key.toLowerCase();
-
-      // Undo: Cmd/Ctrl+Z
-      if (cmd && !e.shiftKey && key === "z") {
-        e.preventDefault();
-        undo?.();
-        return;
+      if (meta && !event.shiftKey && event.key === "z") {
+        event.preventDefault()
+        undo()
+        return
       }
 
-      // Redo: Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y
-      if (cmd && ((e.shiftKey && key === "z") || key === "y")) {
-        e.preventDefault();
-        redo?.();
-        return;
+      if (meta && event.key === "y") {
+        event.preventDefault()
+        redo()
       }
-    };
+    }
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [reactFlow, undo, redo]);
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [reactFlow, undo, redo])
 }
