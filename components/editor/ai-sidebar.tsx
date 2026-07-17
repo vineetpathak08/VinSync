@@ -1,11 +1,17 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { MessageSquare, X, FileText } from "lucide-react";
+import { FileText, Loader2, MessageSquare, Send, X } from "lucide-react";
+import { useFeedMessages, useOthersMapped } from "@liveblocks/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import {
+  AI_STATUS_FEED_ID,
+  isAiGenerationActive,
+  parseAiStatusFeedMessage,
+} from "@/types/tasks";
 
 type AiSidebarProps = {
   onClose?: () => void;
@@ -14,6 +20,24 @@ type AiSidebarProps = {
 export default function AiSidebar({ onClose }: AiSidebarProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const { messages } = useFeedMessages(AI_STATUS_FEED_ID);
+  const thinkingPresence = useOthersMapped((other) =>
+    Boolean(other.presence.thinking),
+  );
+  const latestStatus = [...(messages ?? [])]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((message) => parseAiStatusFeedMessage(message.data))
+    .find((message) => message !== null);
+  const hasThinkingPresence = thinkingPresence.some((entry) => {
+    if (Array.isArray(entry)) {
+      return Boolean(entry[1]);
+    }
+
+    return Boolean(entry);
+  });
+  const isGenerating =
+    hasThinkingPresence ||
+    (latestStatus ? isAiGenerationActive(latestStatus.phase) : false);
 
   function resizeTextarea() {
     const el = textareaRef.current;
@@ -31,8 +55,7 @@ export default function AiSidebar({ onClose }: AiSidebarProps) {
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // send message -- UI only for now
-      if (value.trim()) {
+      if (!isGenerating && value.trim()) {
         console.log("send:", value);
         setValue("");
         resizeTextarea();
@@ -52,7 +75,15 @@ export default function AiSidebar({ onClose }: AiSidebarProps) {
           <div className="text-sm font-semibold text-primary-text">
             AI Workspace
           </div>
-          <div className="text-xs text-muted-text">Collaborate with Vin AI</div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted-text">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                isGenerating ? "bg-ai" : "bg-state-success",
+              )}
+            />
+            <span>{isGenerating ? "Vin AI is thinking" : "Vin AI is idle"}</span>
+          </div>
         </div>
         <div>
           <Button
@@ -89,6 +120,31 @@ export default function AiSidebar({ onClose }: AiSidebarProps) {
           >
             <div className="flex-1 overflow-y-auto px-1">
               <div className="flex h-full flex-col items-center justify-center gap-3 py-8">
+                {latestStatus?.text ? (
+                  <div className="w-full rounded-xl border border-surface-border bg-elevated px-3 py-2 text-sm text-copy-secondary">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase text-copy-muted">
+                      {isGenerating ? (
+                        <Loader2
+                          className="h-3.5 w-3.5 animate-spin text-ai-text"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span
+                          className={cn(
+                            "h-2 w-2 rounded-full",
+                            latestStatus.phase === "error"
+                              ? "bg-state-error"
+                              : "bg-state-success",
+                          )}
+                        />
+                      )}
+                      Latest AI status
+                    </div>
+                    <div className="mt-1 text-copy-primary">
+                      {latestStatus.text}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex flex-col items-center gap-2">
                   <div className="rounded-2xl bg-elevated p-4 text-center">
                     <MessageSquare className="mx-auto mb-2 h-6 w-6 text-accent-text" />
@@ -107,6 +163,7 @@ export default function AiSidebar({ onClose }: AiSidebarProps) {
                     ].map((chip) => (
                       <button
                         key={chip}
+                        type="button"
                         onClick={() => setValue(chip)}
                         className={cn(
                           "rounded-full px-3 py-1 text-sm bg-subtle text-accent-text",
@@ -129,18 +186,25 @@ export default function AiSidebar({ onClose }: AiSidebarProps) {
                   value={value}
                   onChange={handleInput}
                   onKeyDown={handleKeyDown}
+                  disabled={isGenerating}
                 />
                 <Button
                   className="whitespace-nowrap bg-accent text-white"
+                  disabled={isGenerating || !value.trim()}
                   onClick={() => {
-                    if (value.trim()) {
+                    if (!isGenerating && value.trim()) {
                       console.log("send:", value);
                       setValue("");
                       resizeTextarea();
                     }
                   }}
                 >
-                  Send
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span>Send</span>
                 </Button>
               </div>
             </div>

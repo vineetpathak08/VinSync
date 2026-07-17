@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     {
       userInfo: {
         name,
-        avatar,
+        avatar: avatar ?? "",
         color,
       },
     },

@@ -9,6 +9,7 @@ import {
   getProjectByAccess,
 } from "@/lib/project-access";
 import AiSidebar from "@/components/editor/ai-sidebar";
+import { WorkspaceRoomProvider } from "@/components/editor/workspace-room-provider";
 
 interface EditorRoomPageProps {
   params: Promise<{
@@ -41,22 +42,24 @@ export default async function EditorRoomPage({
   const { ownedProjects, sharedProjects } = await getProjectSidebarData();
 
   return (
-    <EditorLayout
-      ownedProjects={ownedProjects}
-      sharedProjects={sharedProjects}
-      activeProjectId={project.id}
-      navbarTitle={project.name}
-      startWithTemplatesOpen={resolvedSearchParams?.templates === "1"}
-      showShareButton
-      shareProjectId={project.id}
-      shareProjectName={project.name}
-      showAiToggle
-      rightSidebar={<AiSidebar />}
-    >
-      <LiveblocksCanvas
-        roomId={project.id}
-        initialTemplateId={resolvedSearchParams?.template}
-      />
-    </EditorLayout>
+    <WorkspaceRoomProvider roomId={project.id}>
+      <EditorLayout
+        ownedProjects={ownedProjects}
+        sharedProjects={sharedProjects}
+        activeProjectId={project.id}
+        navbarTitle={project.name}
+        startWithTemplatesOpen={resolvedSearchParams?.templates === "1"}
+        showShareButton
+        shareProjectId={project.id}
+        shareProjectName={project.name}
+        showAiToggle
+        rightSidebar={<AiSidebar />}
+      >
+        <LiveblocksCanvas
+          roomId={project.id}
+          initialTemplateId={resolvedSearchParams?.template}
+        />
+      </EditorLayout>
+    </WorkspaceRoomProvider>
   );
 }

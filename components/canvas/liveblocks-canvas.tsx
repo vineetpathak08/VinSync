@@ -28,14 +28,14 @@ import {
   useCanRedo,
   useMyPresence,
   useOthers,
+  useEventListener,
 } from "@liveblocks/react";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import {
   ClientSideSuspense,
-  LiveblocksProvider,
-  RoomProvider,
 } from "@liveblocks/react/suspense";
 import { UserButton } from "@clerk/nextjs";
+import { Loader2, MessageSquare } from "lucide-react";
 
 import {
   CanvasNodeRenderer,
@@ -61,6 +61,10 @@ import CANVAS_TEMPLATES, {
 } from "@/components/editor/starter-templates";
 import { normalizeCanvasSnapshot } from "@/lib/canvas-storage";
 import { useCanvasAutosave } from "@/hooks/use-canvas-autosave";
+import {
+  parseAiStatusFeedMessage,
+  type AiStatusFeedMessage,
+} from "@/types/tasks";
 
 interface LiveblocksCanvasProps {
   roomId: string;
@@ -163,6 +167,8 @@ function SyncedReactFlowCanvasInner({
     size: { width: number; height: number };
     position: { x: number; y: number };
   }>(null);
+  const [latestDesignStatus, setLatestDesignStatus] =
+    useState<AiStatusFeedMessage | null>(null);
   const { markSnapshotSaved } = useCanvasAutosave({
     projectId,
     nodes,
@@ -575,6 +581,26 @@ function SyncedReactFlowCanvasInner({
     replaceCanvas(imported.nodes, imported.edges);
   }, [hasCheckedSavedCanvas, initialTemplateId, replaceCanvas]);
 
+  useEventListener((message) => {
+    const roomEvent = message.event;
+
+    if (roomEvent.type !== "design-agent/status") {
+      return;
+    }
+
+    const status = parseAiStatusFeedMessage({
+      kind: "ai-status",
+      source: "design",
+      phase: roomEvent.phase,
+      projectId: roomEvent.projectId,
+      runId: roomEvent.runId,
+      text: roomEvent.message,
+      timestamp: roomEvent.timestamp,
+    });
+
+    setLatestDesignStatus(status);
+  });
+
   // Keyboard shortcuts (zoom + undo/redo)
   // Hook lives in hooks/useKeyboardShortcuts and ignores typing targets.
   // Pass the React Flow instance and Liveblocks undo/redo handlers.
@@ -703,6 +729,32 @@ function SyncedReactFlowCanvasInner({
           </div>
         </div>
       </div>
+      {latestDesignStatus ? (
+        <div className="pointer-events-none absolute left-4 top-4 z-40 w-[min(24rem,calc(100vw-2rem))]">
+          <div className="pointer-events-auto rounded-2xl border border-surface-border bg-surface/90 p-3 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-copy-muted">
+              <MessageSquare className="h-4 w-4 text-ai-text" />
+              AI Status
+            </div>
+            <div className="mt-3">
+              <div className="flex items-start gap-2 rounded-xl border border-surface-border bg-elevated px-3 py-2 text-sm text-copy-primary">
+                <span
+                  className="mt-1 h-2.5 w-2.5 rounded-full"
+                  style={{
+                    backgroundColor:
+                      latestDesignStatus.phase === "complete"
+                        ? "var(--state-success)"
+                        : latestDesignStatus.phase === "error"
+                          ? "var(--state-error)"
+                          : "var(--accent-ai)",
+                  }}
+                />
+                <span>{latestDesignStatus.text}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* Live cursor overlays for other participants */}
       <div className="pointer-events-none absolute inset-0 z-30">
         {others &&
@@ -719,6 +771,7 @@ function SyncedReactFlowCanvasInner({
                 y: number;
               } | null;
               if (!cursor) return null;
+              const isThinking = Boolean(o.presence.thinking);
 
               const info = o.info ?? {};
               const userInfo = info.user ?? info;
@@ -745,9 +798,15 @@ function SyncedReactFlowCanvasInner({
                     />
                     <div
                       style={{ borderColor: color }}
-                      className="mt-2 rounded-md border bg-surface/90 px-2 py-0.5 text-xs text-copy-primary"
+                      className="mt-2 flex items-center gap-1.5 rounded-md border bg-surface/90 px-2 py-0.5 text-xs text-copy-primary"
                     >
-                      {name}
+                      {isThinking ? (
+                        <Loader2
+                          className="h-3 w-3 animate-spin text-ai-text"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                      <span>{name}</span>
                     </div>
                   </div>
                 </div>
@@ -848,23 +907,16 @@ export function LiveblocksCanvas({
 }: LiveblocksCanvasProps) {
   return (
     <div className="flex min-h-0 w-full flex-1">
-      <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-        <RoomProvider
-          id={roomId}
-          initialPresence={{ cursor: null, thinking: false }}
-        >
-          <CanvasErrorBoundary>
-            <ClientSideSuspense fallback={<CanvasLoadingState />}>
-              <ReactFlowProvider>
-                <SyncedReactFlowCanvasInner
-                  projectId={roomId}
-                  initialTemplateId={initialTemplateId}
-                />
-              </ReactFlowProvider>
-            </ClientSideSuspense>
-          </CanvasErrorBoundary>
-        </RoomProvider>
-      </LiveblocksProvider>
+      <CanvasErrorBoundary>
+        <ClientSideSuspense fallback={<CanvasLoadingState />}>
+          <ReactFlowProvider>
+            <SyncedReactFlowCanvasInner
+              projectId={roomId}
+              initialTemplateId={initialTemplateId}
+            />
+          </ReactFlowProvider>
+        </ClientSideSuspense>
+      </CanvasErrorBoundary>
     </div>
   );
 }

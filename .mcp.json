@@ -2,7 +2,7 @@
   "mcpServers": {
     "trigger": {
       "args": [
-        "trigger.dev@4.4.6",
+        "trigger.dev@4.4.4",
         "mcp"
       ],
       "command": "npx"
