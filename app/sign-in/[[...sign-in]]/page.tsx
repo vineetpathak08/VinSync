@@ -1,46 +1,87 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignIn } from "@clerk/nextjs"
+import { BrainCircuit, Share2, ScrollText } from "lucide-react"
+
+const features = [
+  {
+    icon: BrainCircuit,
+    title: "AI Architecture Generation",
+    description:
+      "Describe your system, AI maps it to nodes and edges on a live canvas.",
+  },
+  {
+    icon: Share2,
+    title: "Real-time Collaboration",
+    description:
+      "Live cursors, presence indicators, and shared node editing across your team.",
+  },
+  {
+    icon: ScrollText,
+    title: "Instant Spec Generation",
+    description:
+      "Export a complete Markdown technical spec directly from the canvas graph.",
+  },
+]
 
 export default function SignInPage() {
   return (
-    <main className="flex min-h-screen items-stretch bg-base px-4 py-10 sm:px-6 lg:px-10">
-      <div className="mx-auto grid w-full max-w-5xl overflow-hidden rounded-3xl border border-surface-border bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <section className="hidden flex-col justify-between gap-10 bg-subtle p-10 lg:flex">
-          <div className="flex items-center gap-3 text-sm font-medium text-copy-primary">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-surface-border bg-base text-brand">
-              VS
+    <main className="min-h-screen flex">
+      <div className="hidden lg:flex w-1/2 flex-col bg-bg-surface border-r border-border-default">
+        <div className="px-12 pt-10">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-accent-primary flex items-center justify-center shrink-0">
+              <span
+                className="text-bg-base font-bold text-xs leading-none"
+                style={{ fontFamily: "var(--font-geist-sans)" }}
+              >
+                G
+              </span>
+            </div>
+            <span className="text-sm font-semibold text-text-primary">
+              <VinSync></VinSync> AI
             </span>
-            VinSync
           </div>
+        </div>
 
-          <div className="space-y-4">
-            <p className="text-xl font-semibold text-copy-primary">
-              Design systems together, in real time.
-            </p>
-            <p className="text-sm text-copy-muted">
-              Build architecture faster with a shared canvas, AI assistance, and
-              instant collaboration.
-            </p>
-          </div>
+        <div className="flex-1 flex flex-col justify-center px-12 py-16">
+          <h1 className="text-4xl font-bold text-text-primary leading-tight tracking-tight mb-5">
+            Design systems at the
+            <br />
+            speed of thought.
+          </h1>
+          <p className="text-text-secondary text-base leading-relaxed mb-12 max-w-sm">
+            Describe your architecture in plain English. Ghost AI maps it to a
+            shared canvas your whole team can refine in real time.
+          </p>
 
-          <ul className="space-y-2 text-sm text-copy-muted">
-            <li>Real-time canvas with live collaborators.</li>
-            <li>Generate specs straight from the graph.</li>
-            <li>Start from proven system templates.</li>
+          <ul className="space-y-7">
+            {features.map(({ icon: Icon, title, description }) => (
+              <li key={title} className="flex items-start gap-4">
+                <div className="shrink-0 h-10 w-10 rounded-xl bg-accent-primary-dim flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-accent-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text-primary leading-snug">
+                    {title}
+                  </p>
+                  <p className="text-sm text-text-muted mt-1 leading-snug">
+                    {description}
+                  </p>
+                </div>
+              </li>
+            ))}
           </ul>
-        </section>
+        </div>
 
-        <section className="flex items-center justify-center p-6 lg:p-12">
-          <div className="w-full max-w-[420px]">
-            <SignIn
-              routing="path"
-              path="/sign-in"
-              signUpUrl="/sign-up"
-              forceRedirectUrl="/editor"
-              fallbackRedirectUrl="/editor"
-            />
-          </div>
-        </section>
+        <div className="px-12 pb-10">
+          <p className="text-xs text-text-faint">
+            © 2026 Vinsync AI. All rights reserved.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-1 lg:w-1/2 items-center justify-center p-8 bg-bg-base">
+        <SignIn />
       </div>
     </main>
-  );
+  )
 }

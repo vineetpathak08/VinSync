@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Canvas enhancements
+- AI design agent and canvas collaboration
 
 ## Current Goal
 
-- Implement autosave and loading for collaborative canvas snapshots using Vercel Blob.
+- Implement the full AI design agent so prompt-driven updates appear in the shared Liveblocks canvas with AI presence and status.
 
 ## Completed
 
@@ -72,6 +72,20 @@ Update this file whenever the current phase, active feature, or implementation s
   - Added `PUT /api/projects/[projectId]/canvas` and `GET /api/projects/[projectId]/canvas` with Prisma-backed project metadata and Vercel Blob storage for canvas JSON.
   - Added a debounced canvas autosave hook, project-scoped hydration guard, and editor save-status indicator in the navbar.
   - Saved canvas state now skips hydration when the room already has active nodes or edges.
+- Trigger.dev design-agent backend flow.
+  - Added `TaskRun` tracking in Prisma for Trigger.dev run ownership checks.
+  - Added `POST /api/ai/design` to trigger the design task and persist the run ID.
+  - Added `POST /api/ai/design/token` to mint a run-scoped Trigger.dev public token.
+  - Added `trigger/design-agent.ts` as a minimal background task that logs and echoes the prompt payload.
+  - Validated the flow with `npm run build`, which regenerated the Prisma client and compiled the new routes successfully.
+- AI design agent implementation.
+  - Extended Liveblocks typing with room events and richer user metadata for AI status updates.
+  - Added a shared AI status feed overlay to the collaborative canvas.
+  - Reworked `trigger/design-agent.ts` to use Gemini, mutate the Liveblocks React Flow storage directly, and broadcast progress/status updates.
+  - Fixed the canvas status listener to unwrap Liveblocks room event messages before reading design-agent event payloads.
+  - Tightened design-agent canvas snapshot helpers to accept readonly React Flow JSON snapshots while preserving canvas data guards.
+  - Aligned `@ai-sdk/google` with the installed AI SDK provider version so Gemini structured output type-checks.
+  - Validated the AI design agent flow with `npm.cmd run build`.
 
 ## In Progress
 
@@ -79,7 +93,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Resume the floating node color toolbar and paired text/background color updates for canvas nodes.
+- Resume the floating node color toolbar and paired text/background color updates for canvas nodes after the AI agent work lands cleanly.
 
 ## Open Questions
 
@@ -119,6 +133,8 @@ Update this file whenever the current phase, active feature, or implementation s
 - Pinned `@trigger.dev/sdk` and `@trigger.dev/build` to exact `4.4.6` versions so the Trigger.dev CLI can run without the version-mismatch guard.
 - Added a minimal `trigger/hello.ts` task so the Trigger.dev dev server has a discoverable task file.
 - Verified `npx trigger.dev@latest dev` reaches the ready state with the local worker online.
+- Captured the Trigger.dev design-agent wiring requirements from `context/feature-specs/22-design-agent-api.md` and implemented the backend-only flow without AI generation.
+- Added the missing inverse Prisma relation from `Project` to `TaskRun` so the new model validates cleanly.
 - Added the shape panel, drag-and-drop payloads, and a basic canvas node renderer for `context/feature-specs/12-shape-panel.md`.
 - Fixed React Flow nodeTypes typing to wrap `CanvasNodeRenderer` with a `NodeProps`-compatible component.
 - Implemented custom canvas edges, four-side node handles, and inline edge label editing with a clean build validation pass.

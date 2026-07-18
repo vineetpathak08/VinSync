@@ -1,223 +1,122 @@
-import type { CanvasEdge, CanvasNode } from "@/types/canvas";
-import {
-  CANVAS_EDGE_TYPE,
-  CANVAS_NODE_TYPE,
-  NODE_COLORS,
-} from "@/types/canvas";
+import { MarkerType } from "@xyflow/react"
+import type { CanvasNode, CanvasEdge, NodeShape } from "@/types/canvas"
+import { NODE_COLORS, SHAPE_DEFAULTS } from "@/types/canvas"
 
-export type CanvasTemplate = {
-  id: string;
-  name: string;
-  description: string;
-  nodes: CanvasNode[];
-  edges: CanvasEdge[];
-};
+export interface CanvasTemplate {
+  id: string
+  name: string
+  description: string
+  nodes: CanvasNode[]
+  edges: CanvasEdge[]
+}
 
-export type CanvasTemplateImport = {
-  nodes: CanvasNode[];
-  edges: CanvasEdge[];
-};
+const C = NODE_COLORS
 
-export function instantiateCanvasTemplate(
-  template: CanvasTemplate,
-  seed: string,
-): CanvasTemplateImport {
-  const idMap: Record<string, string> = {};
+function n(
+  id: string,
+  label: string,
+  colorIdx: number,
+  shape: NodeShape,
+  x: number,
+  y: number,
+  w?: number,
+  h?: number
+): CanvasNode {
+  const def = SHAPE_DEFAULTS[shape]
+  return {
+    id,
+    type: "canvasNode",
+    position: { x, y },
+    data: { label, color: C[colorIdx].fill, textColor: C[colorIdx].text, shape },
+    width: w ?? def.width,
+    height: h ?? def.height,
+  }
+}
 
-  const nodes = template.nodes.map((node, index) => {
-    const newId = `${seed}-n-${index}`;
-    idMap[node.id] = newId;
+const MARKER_END = {
+  type: MarkerType.ArrowClosed,
+  color: "rgba(255,255,255,0.4)",
+  width: 16,
+  height: 16,
+} as const
 
-    return {
-      ...node,
-      id: newId,
-    };
-  });
-
-  const edges = template.edges.map((edge, index) => ({
-    ...edge,
-    id: `${seed}-e-${index}`,
-    source: idMap[edge.source] ?? edge.source,
-    target: idMap[edge.target] ?? edge.target,
-  }));
-
-  return { nodes, edges };
+function e(id: string, source: string, target: string): CanvasEdge {
+  return {
+    id,
+    type: "canvasEdge",
+    source,
+    target,
+    data: { label: "" },
+    markerEnd: MARKER_END,
+  }
 }
 
 export const CANVAS_TEMPLATES: CanvasTemplate[] = [
   {
     id: "microservices",
     name: "Microservices",
-    description:
-      "A small microservice architecture with API gateway and services.",
+    description: "API Gateway routes traffic to isolated services, each backed by a dedicated database and connected via a shared message bus.",
     nodes: [
-      {
-        id: "gw",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 400, y: 60 },
-        data: { label: "API Gateway", color: NODE_COLORS[1], shape: "pill" },
-        style: { width: 220, height: 72 },
-      },
-      {
-        id: "svc-a",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 160, y: 220 },
-        data: { label: "Service A", color: NODE_COLORS[2], shape: "rectangle" },
-        style: { width: 180, height: 110 },
-      },
-      {
-        id: "svc-b",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 400, y: 220 },
-        data: { label: "Service B", color: NODE_COLORS[3], shape: "rectangle" },
-        style: { width: 180, height: 110 },
-      },
-      {
-        id: "db",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 640, y: 220 },
-        data: { label: "Database", color: NODE_COLORS[4], shape: "cylinder" },
-        style: { width: 180, height: 120 },
-      },
+      n("ms-gw",    "API Gateway",       1, "rectangle", 240,   0),
+      n("ms-auth",  "Auth Service",      2, "pill",        0, 160),
+      n("ms-users", "User Service",      7, "rectangle",  200, 160),
+      n("ms-orders","Order Service",     3, "rectangle",  380, 160),
+      n("ms-pay",   "Payment Service",   5, "rectangle",  560, 160),
+      n("ms-udb",   "User DB",           0, "cylinder",   200, 320),
+      n("ms-odb",   "Order DB",          0, "cylinder",   380, 320),
     ],
     edges: [
-      {
-        id: "e1",
-        source: "gw",
-        target: "svc-a",
-        type: CANVAS_EDGE_TYPE,
-        data: { label: "HTTP" },
-      },
-      {
-        id: "e2",
-        source: "gw",
-        target: "svc-b",
-        type: CANVAS_EDGE_TYPE,
-        data: { label: "HTTP" },
-      },
-      {
-        id: "e3",
-        source: "svc-b",
-        target: "db",
-        type: CANVAS_EDGE_TYPE,
-        data: { label: "Reads/Writes" },
-      },
+      e("ms-e1", "ms-gw",    "ms-auth"),
+      e("ms-e2", "ms-gw",    "ms-users"),
+      e("ms-e3", "ms-gw",    "ms-orders"),
+      e("ms-e4", "ms-gw",    "ms-pay"),
+      e("ms-e5", "ms-users", "ms-udb"),
+      e("ms-e6", "ms-orders","ms-odb"),
     ],
   },
-
   {
-    id: "cicd",
+    id: "cicd-pipeline",
     name: "CI/CD Pipeline",
-    description:
-      "Simple CI/CD pipeline flow with repo, build, test, deploy stages.",
+    description: "End-to-end delivery from source commit through build, test, containerisation, and staged deployment to production.",
     nodes: [
-      {
-        id: "repo",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 160, y: 120 },
-        data: {
-          label: "Repository",
-          color: NODE_COLORS[6],
-          shape: "rectangle",
-        },
-        style: { width: 160, height: 90 },
-      },
-      {
-        id: "build",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 360, y: 120 },
-        data: { label: "Build", color: NODE_COLORS[1], shape: "rectangle" },
-        style: { width: 160, height: 90 },
-      },
-      {
-        id: "test",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 560, y: 120 },
-        data: { label: "Tests", color: NODE_COLORS[7], shape: "rectangle" },
-        style: { width: 160, height: 90 },
-      },
-      {
-        id: "deploy",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 760, y: 120 },
-        data: { label: "Deploy", color: NODE_COLORS[0], shape: "rectangle" },
-        style: { width: 160, height: 90 },
-      },
+      n("ci-src",   "Source Code",          1, "rectangle",    0, 60),
+      n("ci-build", "Build",                3, "rectangle",  220, 60),
+      n("ci-test",  "Test Suite",           6, "diamond",    440, 30),
+      n("ci-pkg",   "Package",              1, "rectangle",  680, 60),
+      n("ci-stg",   "Deploy Staging",       3, "rectangle",  900, 60),
+      n("ci-int",   "Integration Tests",    2, "diamond",   1120, 30),
+      n("ci-prod",  "Deploy Production",    7, "rectangle", 1360, 60),
     ],
     edges: [
-      { id: "e1", source: "repo", target: "build", type: CANVAS_EDGE_TYPE },
-      { id: "e2", source: "build", target: "test", type: CANVAS_EDGE_TYPE },
-      { id: "e3", source: "test", target: "deploy", type: CANVAS_EDGE_TYPE },
+      e("ci-e1", "ci-src",   "ci-build"),
+      e("ci-e2", "ci-build", "ci-test"),
+      e("ci-e3", "ci-test",  "ci-pkg"),
+      e("ci-e4", "ci-pkg",   "ci-stg"),
+      e("ci-e5", "ci-stg",   "ci-int"),
+      e("ci-e6", "ci-int",   "ci-prod"),
     ],
   },
-
   {
     id: "event-driven",
-    name: "Event-driven System",
-    description:
-      "Producers, event bus, and consumers communicating asynchronously.",
+    name: "Event-Driven System",
+    description: "Producers publish events to a central bus. Independent consumers handle emails, push notifications, analytics, and error queues.",
     nodes: [
-      {
-        id: "producer",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 160, y: 140 },
-        data: { label: "Producer", color: NODE_COLORS[5], shape: "rectangle" },
-        style: { width: 180, height: 110 },
-      },
-      {
-        id: "bus",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 420, y: 140 },
-        data: { label: "Event Bus", color: NODE_COLORS[1], shape: "pill" },
-        style: { width: 220, height: 72 },
-      },
-      {
-        id: "consumer-a",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 680, y: 60 },
-        data: {
-          label: "Consumer A",
-          color: NODE_COLORS[2],
-          shape: "rectangle",
-        },
-        style: { width: 160, height: 90 },
-      },
-      {
-        id: "consumer-b",
-        type: CANVAS_NODE_TYPE,
-        position: { x: 680, y: 220 },
-        data: {
-          label: "Consumer B",
-          color: NODE_COLORS[3],
-          shape: "rectangle",
-        },
-        style: { width: 160, height: 90 },
-      },
+      n("ev-p1",     "Producer A",        1, "rectangle",   0, 100),
+      n("ev-p2",     "Producer B",        1, "rectangle",   0, 240),
+      n("ev-broker", "Message Broker",    3, "hexagon",   260, 130),
+      n("ev-c1",     "Consumer A",        6, "rectangle", 540,  60),
+      n("ev-c2",     "Consumer B",        7, "rectangle", 540, 220),
+      n("ev-store",  "Event Store",       0, "cylinder",  260, 360),
+      n("ev-dlq",    "Dead Letter Queue", 4, "rectangle", 540, 380),
     ],
     edges: [
-      {
-        id: "e1",
-        source: "producer",
-        target: "bus",
-        type: CANVAS_EDGE_TYPE,
-        data: { label: "events" },
-      },
-      {
-        id: "e2",
-        source: "bus",
-        target: "consumer-a",
-        type: CANVAS_EDGE_TYPE,
-        data: { label: "subscribe" },
-      },
-      {
-        id: "e3",
-        source: "bus",
-        target: "consumer-b",
-        type: CANVAS_EDGE_TYPE,
-        data: { label: "subscribe" },
-      },
+      e("ev-e1", "ev-p1",     "ev-broker"),
+      e("ev-e2", "ev-p2",     "ev-broker"),
+      e("ev-e3", "ev-broker", "ev-c1"),
+      e("ev-e4", "ev-broker", "ev-c2"),
+      e("ev-e5", "ev-broker", "ev-store"),
+      e("ev-e6", "ev-c1",     "ev-dlq"),
+      e("ev-e7", "ev-c2",     "ev-dlq"),
     ],
   },
-];
-
-export default CANVAS_TEMPLATES;
+]

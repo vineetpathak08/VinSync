@@ -1,99 +1,50 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse, type NextRequest } from "next/server";
-
-import { prisma } from "@/lib/prisma";
-
-interface RenameProjectBody {
-  name?: string;
-}
-
-const parseJsonBody = async (request: Request): Promise<unknown | null> => {
-  try {
-    return await request.json();
-  } catch {
-    return null;
-  }
-};
-
-const normalizeProjectName = (input: unknown): string => {
-  if (typeof input !== "string") {
-    return "";
-  }
-
-  return input.trim();
-};
-
-const getProject = async (projectId: string) => {
-  if (!projectId) {
-    return null;
-  }
-
-  return prisma.project.findUnique({ where: { id: projectId } });
-};
-
-const ensureOwner = (ownerId: string, userId: string) => ownerId === userId;
+import { auth } from "@clerk/nextjs/server"
+import { prisma } from "@/lib/prisma"
+import type { NextRequest } from "next/server"
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> },
+  ctx: RouteContext<"/api/projects/[projectId]">
 ) {
-  const { projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = await auth()
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { projectId } = await ctx.params
 
-  const body = (await parseJsonBody(request)) as RenameProjectBody | null;
-  const name = normalizeProjectName(body?.name);
+  const project = await prisma.project.findUnique({ where: { id: projectId } })
+  if (!project) return Response.json({ error: "Not found" }, { status: 404 })
+  if (project.ownerId !== userId) return Response.json({ error: "Forbidden" }, { status: 403 })
 
-  if (!name) {
-    return NextResponse.json(
-      { error: "Invalid project name" },
-      { status: 400 },
-    );
-  }
+  const body: unknown = await request.json().catch(() => ({}))
+  const name =
+    typeof body === "object" && body !== null && "name" in body && typeof (body as { name: unknown }).name === "string"
+      ? (body as { name: string }).name.trim()
+      : undefined
 
-  const project = await getProject(projectId);
+  if (!name) return Response.json({ error: "name is required" }, { status: 400 })
 
-  if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  }
-
-  if (!ensureOwner(project.ownerId, userId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const updatedProject = await prisma.project.update({
-    where: { id: project.id },
+  const updated = await prisma.project.update({
+    where: { id: projectId },
     data: { name },
-  });
+  })
 
-  return NextResponse.json({ project: updatedProject });
+  return Response.json({ project: updated })
 }
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> },
+  ctx: RouteContext<"/api/projects/[projectId]">
 ) {
-  const { projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = await auth()
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { projectId } = await ctx.params
 
-  const project = await getProject(projectId);
+  const project = await prisma.project.findUnique({ where: { id: projectId } })
+  if (!project) return Response.json({ error: "Not found" }, { status: 404 })
+  if (project.ownerId !== userId) return Response.json({ error: "Forbidden" }, { status: 403 })
 
-  if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  }
+  await prisma.project.delete({ where: { id: projectId } })
 
-  if (!ensureOwner(project.ownerId, userId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  await prisma.project.delete({ where: { id: project.id } });
-
-  return NextResponse.json({ deleted: true });
+  return new Response(null, { status: 204 })
 }

@@ -1,234 +1,121 @@
-"use client";
+"use client"
 
-import { useCallback, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
 
-import type { ProjectSummary } from "@/types/project";
-
-type DialogType = "create" | "rename" | "delete" | null;
-
-type CreateIntent = "scratch" | "template";
-
-type CreateStage = "choose" | "form";
-
-interface DialogState {
-  type: DialogType;
-  project: ProjectSummary | null;
+export interface ProjectRow {
+  id: string
+  name: string
 }
 
-const toSlug = (value: string) =>
-  value
-    .trim()
+export type DialogType = "create" | "rename" | "delete" | null
+
+function toSlug(name: string): string {
+  return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    .replace(/^-|-$/g, "")
+}
 
-const createShortSuffix = () => {
-  const values = new Uint32Array(1);
-  globalThis.crypto.getRandomValues(values);
-  return values[0].toString(36).slice(0, 5).padStart(5, "0");
-};
+function shortSuffix(): string {
+  return Math.random().toString(36).slice(2, 6)
+}
 
 export function useProjectActions() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [dialogState, setDialogState] = useState<DialogState>({
-    type: null,
-    project: null,
-  });
-  const [createName, setCreateName] = useState("");
-  const [renameName, setRenameName] = useState("");
-  const [createSuffix, setCreateSuffix] = useState("");
-  const [createIntent, setCreateIntent] = useState<CreateIntent>("scratch");
-  const [createStage, setCreateStage] = useState<CreateStage>("choose");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter()
+  const pathname = usePathname()
 
-  const createSlug = useMemo(() => toSlug(createName), [createName]);
-  const roomIdPreview = useMemo(() => {
-    const base = createSlug || "new-project";
-    const suffix = createSuffix || "00000";
-    return `${base}-${suffix}`;
-  }, [createSlug, createSuffix]);
+  const [dialogType, setDialogType] = useState<DialogType>(null)
+  const [activeProject, setActiveProject] = useState<ProjectRow | null>(null)
+  const [name, setName] = useState("")
+  const [roomId, setRoomId] = useState("")
+  const [suffix, setSuffix] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const activeProjectId = useMemo(() => {
-    if (!pathname?.startsWith("/editor/")) {
-      return null;
-    }
+  const openCreate = () => {
+    const s = shortSuffix()
+    setSuffix(s)
+    setName("")
+    setRoomId("")
+    setActiveProject(null)
+    setDialogType("create")
+  }
 
-    const [, , projectId] = pathname.split("/");
-    return projectId || null;
-  }, [pathname]);
+  const openRename = (project: ProjectRow) => {
+    setName(project.name)
+    setRoomId("")
+    setActiveProject(project)
+    setDialogType("rename")
+  }
 
-  const closeDialog = useCallback(() => {
-    setDialogState({ type: null, project: null });
-    setIsSubmitting(false);
-    setCreateIntent("scratch");
-    setCreateStage("choose");
-  }, []);
+  const openDelete = (project: ProjectRow) => {
+    setActiveProject(project)
+    setDialogType("delete")
+  }
 
-  const openCreate = useCallback(() => {
-    setDialogState({ type: "create", project: null });
-    setCreateName("");
-    setRenameName("");
-    setCreateSuffix(createShortSuffix());
-    setCreateIntent("scratch");
-    setCreateStage("choose");
-    setIsSubmitting(false);
-  }, []);
+  const close = () => {
+    setDialogType(null)
+    setActiveProject(null)
+    setName("")
+    setRoomId("")
+  }
 
-  const chooseCreateIntent = useCallback((intent: CreateIntent) => {
-    setCreateIntent(intent);
-    setCreateStage("form");
-    setCreateName("");
-    setCreateSuffix(createShortSuffix());
-    setIsSubmitting(false);
-  }, []);
+  const handleNameChange = (value: string) => {
+    setName(value)
+    const s = toSlug(value)
+    setRoomId(s ? `${s}-${suffix}` : "")
+  }
 
-  const backToCreateChoice = useCallback(() => {
-    setCreateStage("choose");
-    setCreateIntent("scratch");
-    setCreateName("");
-    setCreateSuffix(createShortSuffix());
-    setIsSubmitting(false);
-  }, []);
-
-  const openRename = useCallback((project: ProjectSummary) => {
-    setDialogState({ type: "rename", project });
-    setRenameName(project.name);
-    setIsSubmitting(false);
-  }, []);
-
-  const openDelete = useCallback((project: ProjectSummary) => {
-    setDialogState({ type: "delete", project });
-    setIsSubmitting(false);
-  }, []);
-
-  const handleCreateSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const trimmedName = createName.trim();
-
-      if (!trimmedName) {
-        return;
-      }
-
-      const base = createSlug || "new-project";
-      const suffix = createSuffix || createShortSuffix();
-      const roomId = `${base}-${suffix}`;
-
-      setIsSubmitting(true);
-      setCreateSuffix(suffix);
-
-      try {
-        const response = await fetch("/api/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: trimmedName, roomId }),
-        });
-
-        if (!response.ok) {
-          setIsSubmitting(false);
-          return;
-        }
-
-        const data = (await response.json()) as { project?: { id: string } };
-        const projectId = data.project?.id ?? roomId;
-        closeDialog();
-        router.push(
-          createIntent === "template"
-            ? `/editor/${projectId}?templates=1`
-            : `/editor/${projectId}`,
-        );
-      } catch {
-        setIsSubmitting(false);
-      }
-    },
-    [closeDialog, createIntent, createName, createSlug, createSuffix, router],
-  );
-
-  const handleRenameSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const trimmedName = renameName.trim();
-      const project = dialogState.project;
-
-      if (!project || !trimmedName) {
-        return;
-      }
-
-      setIsSubmitting(true);
-
-      try {
-        const response = await fetch(`/api/projects/${project.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: trimmedName }),
-        });
-
-        if (!response.ok) {
-          setIsSubmitting(false);
-          return;
-        }
-
-        closeDialog();
-        router.refresh();
-      } catch {
-        setIsSubmitting(false);
-      }
-    },
-    [closeDialog, dialogState.project, renameName, router],
-  );
-
-  const handleDeleteConfirm = useCallback(async () => {
-    const project = dialogState.project;
-
-    if (!project) {
-      return;
-    }
-
-    setIsSubmitting(true);
+  const submit = async () => {
+    if (!name.trim() && dialogType !== "delete") return
+    setLoading(true)
 
     try {
-      const response = await fetch(`/api/projects/${project.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        setIsSubmitting(false);
-        return;
+      if (dialogType === "create") {
+        const finalRoomId = roomId || `${toSlug(name.trim())}-${suffix}`
+        const res = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), id: finalRoomId }),
+        })
+        if (res.ok) {
+          const { project } = (await res.json()) as { project: { id: string } }
+          router.push(`/editor/${project.id}`)
+        }
+      } else if (dialogType === "rename" && activeProject) {
+        await fetch(`/api/projects/${activeProject.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() }),
+        })
+        close()
+        router.refresh()
+      } else if (dialogType === "delete" && activeProject) {
+        await fetch(`/api/projects/${activeProject.id}`, { method: "DELETE" })
+        const isActive = pathname === `/editor/${activeProject.id}`
+        close()
+        if (isActive) {
+          router.push("/editor")
+        } else {
+          router.refresh()
+        }
       }
-
-      closeDialog();
-
-      if (activeProjectId === project.id) {
-        router.push("/editor");
-      } else {
-        router.refresh();
-      }
-    } catch {
-      setIsSubmitting(false);
+    } finally {
+      setLoading(false)
     }
-  }, [activeProjectId, closeDialog, dialogState.project, router]);
+  }
 
   return {
-    dialogState,
-    createName,
-    setCreateName,
-    createIntent,
-    createStage,
-    chooseCreateIntent,
-    backToCreateChoice,
-    renameName,
-    setRenameName,
-    createSlug,
-    roomIdPreview,
-    isSubmitting,
-    closeDialog,
+    dialogType,
+    activeProject,
+    name,
+    roomId,
+    loading,
     openCreate,
     openRename,
     openDelete,
-    handleCreateSubmit,
-    handleRenameSubmit,
-    handleDeleteConfirm,
-  };
+    close,
+    handleNameChange,
+    submit,
+  }
 }

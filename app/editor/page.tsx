@@ -1,17 +1,21 @@
-import { EditorLayout } from "@/components/editor/editor-layout";
-import { EditorHome } from "@/components/editor/editor-home";
-import { getProjectSidebarData } from "@/lib/project-data";
+import { redirect } from "next/navigation"
+import { getProjectsForUser } from "@/lib/projects"
+import { getCurrentProjectIdentity } from "@/lib/project-access"
+import { EditorHomeClient } from "@/components/editor/editor-home-client"
 
 export default async function EditorPage() {
-  const { ownedProjects, sharedProjects } = await getProjectSidebarData();
+  const identity = await getCurrentProjectIdentity()
+  if (!identity.userId) redirect("/sign-in")
+
+  const { owned, shared } = await getProjectsForUser(
+    identity.userId,
+    identity.primaryEmailAddress ?? ""
+  )
 
   return (
-    <EditorLayout
-      ownedProjects={ownedProjects}
-      sharedProjects={sharedProjects}
-      navbarTitle="VinSync"
-    >
-      <EditorHome />
-    </EditorLayout>
-  );
+    <EditorHomeClient
+      ownedProjects={owned.map((p) => ({ id: p.id, name: p.name }))}
+      sharedProjects={shared.map((p) => ({ id: p.id, name: p.name }))}
+    />
+  )
 }

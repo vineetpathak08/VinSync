@@ -1,7 +1,15 @@
-import type { Edge, Node } from "@xyflow/react";
+import type { Node, Edge } from "@xyflow/react"
 
-export const CANVAS_NODE_TYPE = "canvasNode";
-export const CANVAS_EDGE_TYPE = "canvasEdge";
+export const NODE_SHAPES = [
+  "rectangle",
+  "diamond",
+  "circle",
+  "pill",
+  "cylinder",
+  "hexagon",
+] as const
+
+export type NodeShape = (typeof NODE_SHAPES)[number]
 
 export const NODE_COLORS = [
   { fill: "#1F1F1F", text: "#EDEDED" },
@@ -12,42 +20,27 @@ export const NODE_COLORS = [
   { fill: "#3A1726", text: "#F75F8F" },
   { fill: "#0F2E18", text: "#62C073" },
   { fill: "#062822", text: "#0AC7B4" },
-] as const;
+] as const
 
-export const DEFAULT_NODE_COLOR = NODE_COLORS[0];
+export const SHAPE_DEFAULTS: Record<NodeShape, { width: number; height: number }> = {
+  rectangle: { width: 160, height: 80 },
+  diamond: { width: 160, height: 120 },
+  circle: { width: 100, height: 100 },
+  pill: { width: 160, height: 72 },
+  cylinder: { width: 120, height: 100 },
+  hexagon: { width: 140, height: 120 },
+}
 
-export const NODE_SHAPES = [
-  "rectangle",
-  "diamond",
-  "circle",
-  "pill",
-  "cylinder",
-  "hexagon",
-] as const;
-
-export type CanvasNodeColor = (typeof NODE_COLORS)[number];
-export type CanvasNodeShape = (typeof NODE_SHAPES)[number];
-
-export interface CanvasNodeData {
-  label: string;
-  color: CanvasNodeColor;
-  shape: CanvasNodeShape;
+export interface CanvasNodeData extends Record<string, unknown> {
+  label: string
+  color?: string
+  textColor?: string
+  shape?: NodeShape
 }
 
 export interface CanvasEdgeData extends Record<string, unknown> {
-  label?: string;
-  pathStyle?: "straight" | "sigmoid";
-  showArrow?: boolean;
+  label?: string
 }
 
-export type CanvasNode = Node<
-  CanvasNodeData & Record<string, unknown>,
-  typeof CANVAS_NODE_TYPE
->;
-
-export type CanvasEdge = Edge<CanvasEdgeData, typeof CANVAS_EDGE_TYPE>;
-
-export interface CanvasSnapshot {
-  nodes: CanvasNode[];
-  edges: CanvasEdge[];
-}
+export type CanvasNode = Node<CanvasNodeData, "canvasNode">
+export type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">

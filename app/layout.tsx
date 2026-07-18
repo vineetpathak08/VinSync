@@ -1,59 +1,55 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { dark } from "@clerk/ui/themes";
-import "./globals.css";
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import { ClerkProvider } from "@clerk/nextjs"
+import { dark } from "@clerk/ui/themes"
+import "./globals.css"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+})
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
+})
 
 export const metadata: Metadata = {
-  title: "VinSync",
-  description: "Collaborative system design workspace",
-};
-
-const clerkAppearance = {
-  baseTheme: dark,
-  variables: {
-    colorBackground: "var(--bg-base)",
-    colorText: "var(--text-primary)",
-    colorTextSecondary: "var(--text-secondary)",
-    colorInputBackground: "var(--bg-elevated)",
-    colorInputText: "var(--text-primary)",
-    colorPrimary: "var(--accent-primary)",
-    colorDanger: "var(--state-error)",
-    colorSuccess: "var(--state-success)",
-    colorWarning: "var(--state-warning)",
-    fontFamily: "var(--font-geist-sans)",
-  },
-  elements: {
-    modalBackdrop: "bg-black/80 backdrop-blur-[2px]",
-    modalContent: "bg-surface text-copy-primary border border-surface-border",
-  },
-};
+  title: "Vinsync AI",
+  description: "AI-powered design collaboration",
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
+    <ClerkProvider
+      appearance={{
+        theme: dark,
+        variables: {
+          colorBackground: "var(--color-bg-base)",
+          colorNeutral: "var(--color-text-primary)",
+          colorPrimary: "var(--color-accent-primary)",
+          colorPrimaryForeground: "var(--color-bg-base)",
+          colorForeground: "var(--color-text-primary)",
+          colorInput: "var(--color-bg-elevated)",
+          colorInputForeground: "var(--color-text-primary)",
+          colorDanger: "var(--color-state-error)",
+          colorSuccess: "var(--color-state-success)",
+          colorWarning: "var(--color-state-warning)",
+          borderRadius: "var(--radius)",
+          fontFamily: "var(--font-geist-sans)",
+        },
+      }}
     >
-      <body className="flex min-h-full flex-col bg-base text-copy-primary">
-        <ClerkProvider appearance={clerkAppearance} afterSignOutUrl="/sign-in">
-          {children}
-        </ClerkProvider>
-      </body>
-    </html>
-  );
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      >
+        <body className="min-h-full flex flex-col">{children}</body>
+      </html>
+    </ClerkProvider>
+  )
 }
