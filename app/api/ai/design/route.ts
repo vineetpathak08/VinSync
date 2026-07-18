@@ -1,70 +1,27 @@
-import { tasks } from "@trigger.dev/sdk/v3";
-import { NextResponse } from "next/server";
-
-import type { designAgent } from "@/trigger/design-agent";
-import { prisma } from "@/lib/prisma";
-import { getCurrentClerkIdentity, getProjectByAccess } from "@/lib/project-access";
-
-interface DesignRequestBody {
-  prompt?: unknown;
-  roomId?: unknown;
-  projectId?: unknown;
-}
-
-const parseJsonBody = async (request: Request): Promise<unknown | null> => {
-  try {
-    return await request.json();
-  } catch {
-    return null;
-  }
-};
-
-const normalizeText = (input: unknown): string => {
-  if (typeof input !== "string") {
-    return "";
-  }
-
-  return input.trim();
-};
+import { auth } from "@clerk/nextjs/server"
+import { prisma } from "@/lib/prisma"
+import { tasks } from "@trigger.dev/sdk/v3"
+import type { designAgent } from "@/trigger/design-agent"
 
 export async function POST(request: Request) {
-  const identity = await getCurrentClerkIdentity();
+  const { userId } = await auth()
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!identity.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await parseJsonBody(request)) as DesignRequestBody | null;
-  const prompt = normalizeText(body?.prompt);
-  const roomId = normalizeText(body?.roomId);
-  const projectId = normalizeText(body?.projectId);
+  const body: unknown = await request.json().catch(() => ({}))
+  const b = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {}
+  const prompt = typeof b.prompt === "string" ? b.prompt.trim() : ""
+  const roomId = typeof b.roomId === "string" ? b.roomId.trim() : ""
+  const projectId = typeof b.projectId === "string" ? b.projectId.trim() : ""
 
   if (!prompt || !roomId || !projectId) {
-    return NextResponse.json(
-      { error: "Missing prompt, roomId, or projectId" },
-      { status: 400 },
-    );
+    return Response.json({ error: "Missing required fields" }, { status: 400 })
   }
 
-  const project = await getProjectByAccess(projectId, identity);
-
-  if (!project) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const run = await tasks.trigger<typeof designAgent>("design-agent", {
-    prompt,
-    roomId,
-    projectId: project.id,
-  });
+  const handle = await tasks.trigger<typeof designAgent>("design-agent", { prompt, roomId, userId })
 
   await prisma.taskRun.create({
-    data: {
-      runId: run.id,
-      projectId: project.id,
-      userId: identity.userId,
-    },
-  });
+    data: { runId: handle.id, projectId, userId },
+  })
 
-  return NextResponse.json({ runId: run.id }, { status: 201 });
+  return Response.json({ runId: handle.id }, { status: 201 })
 }

@@ -1,65 +1,37 @@
-import { redirect } from "next/navigation";
-
-import { LiveblocksCanvas } from "@/components/canvas/liveblocks-canvas";
-import { AccessDenied } from "@/components/editor/access-denied";
-import { EditorLayout } from "@/components/editor/editor-layout";
-import { getProjectSidebarData } from "@/lib/project-data";
+import { redirect } from "next/navigation"
+import { AccessDenied } from "@/components/editor/access-denied"
+import { EditorWorkspaceClient } from "@/components/editor/editor-workspace-client"
+import { getProjectsForUser } from "@/lib/projects"
 import {
-  getCurrentClerkIdentity,
-  getProjectByAccess,
-} from "@/lib/project-access";
-import AiSidebar from "@/components/editor/ai-sidebar";
-import { WorkspaceRoomProvider } from "@/components/editor/workspace-room-provider";
+  getAccessibleProject,
+  getCurrentProjectIdentity,
+} from "@/lib/project-access"
 
-interface EditorRoomPageProps {
-  params: Promise<{
-    roomId: string;
-  }>;
-  searchParams?: Promise<{
-    template?: string;
-    templates?: string;
-  }>;
-}
+export default async function EditorWorkspacePage(
+  props: PageProps<"/editor/[roomId]">
+) {
+  const identity = await getCurrentProjectIdentity()
 
-export default async function EditorRoomPage({
-  params,
-  searchParams,
-}: EditorRoomPageProps) {
-  const { roomId } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const identity = await getCurrentClerkIdentity();
+  if (!identity.userId) redirect("/sign-in")
 
-  if (!identity.userId) {
-    redirect("/sign-in");
-  }
-
-  const project = await getProjectByAccess(roomId, identity);
+  const { roomId } = await props.params
+  const project = await getAccessibleProject(roomId, identity)
 
   if (!project) {
-    return <AccessDenied />;
+    return <AccessDenied />
   }
 
-  const { ownedProjects, sharedProjects } = await getProjectSidebarData();
+  const { owned, shared } = await getProjectsForUser(
+    identity.userId,
+    identity.primaryEmailAddress ?? ""
+  )
 
   return (
-    <WorkspaceRoomProvider roomId={project.id}>
-      <EditorLayout
-        ownedProjects={ownedProjects}
-        sharedProjects={sharedProjects}
-        activeProjectId={project.id}
-        navbarTitle={project.name}
-        startWithTemplatesOpen={resolvedSearchParams?.templates === "1"}
-        showShareButton
-        shareProjectId={project.id}
-        shareProjectName={project.name}
-        showAiToggle
-        rightSidebar={<AiSidebar />}
-      >
-        <LiveblocksCanvas
-          roomId={project.id}
-          initialTemplateId={resolvedSearchParams?.template}
-        />
-      </EditorLayout>
-    </WorkspaceRoomProvider>
-  );
+    <EditorWorkspaceClient
+      currentProject={{ id: project.id, name: project.name }}
+      ownedProjects={owned.map((item) => ({ id: item.id, name: item.name }))}
+      sharedProjects={shared.map((item) => ({ id: item.id, name: item.name }))}
+      roomId={roomId}
+    />
+  )
 }

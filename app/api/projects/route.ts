@@ -1,60 +1,30 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
-
-import { prisma } from "@/lib/prisma";
-
-interface CreateProjectBody {
-  name?: string;
-}
-
-const parseJsonBody = async (request: Request): Promise<unknown | null> => {
-  try {
-    return await request.json();
-  } catch {
-    return null;
-  }
-};
-
-const normalizeProjectName = (input: unknown): string => {
-  if (typeof input !== "string") {
-    return "";
-  }
-
-  return input.trim();
-};
+import { auth } from "@clerk/nextjs/server"
+import { prisma } from "@/lib/prisma"
 
 export async function GET() {
-  const { userId } = await auth();
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { userId } = await auth()
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
   const projects = await prisma.project.findMany({
     where: { ownerId: userId },
     orderBy: { createdAt: "desc" },
-  });
+  })
 
-  return NextResponse.json({ projects });
+  return Response.json({ projects })
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const { userId } = await auth()
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await parseJsonBody(request)) as CreateProjectBody | null;
-  const candidateName = normalizeProjectName(body?.name);
-  const name = candidateName || "Untitled Project";
+  const body: unknown = await request.json().catch(() => ({}))
+  const b = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {}
+  const name = typeof b.name === "string" ? (b.name.trim() || "Untitled Project") : "Untitled Project"
+  const id = typeof b.id === "string" && b.id.trim() ? b.id.trim() : undefined
 
   const project = await prisma.project.create({
-    data: {
-      ownerId: userId,
-      name,
-    },
-  });
+    data: { ...(id ? { id } : {}), ownerId: userId, name },
+  })
 
-  return NextResponse.json({ project }, { status: 201 });
+  return Response.json({ project }, { status: 201 })
 }

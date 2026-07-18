@@ -19,6 +19,7 @@ export async function POST(request: Request) {
 
   const token = await triggerAuth.createPublicToken({
     scopes: { read: { runs: [runId] } },
+    expirationTime: "1h",
   })
 
   return Response.json({ token })
