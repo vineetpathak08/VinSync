@@ -37,7 +37,7 @@ export default function SignInPage() {
               </span>
             </div>
             <span className="text-sm font-semibold text-text-primary">
-              <VinSync></VinSync> AI
+              Vinsync AI
             </span>
           </div>
         </div>

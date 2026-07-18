@@ -1,632 +1,387 @@
-import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
-import { mutateFlow } from "@liveblocks/react-flow/node";
 import { task } from "@trigger.dev/sdk/v3";
-import type { Edge, Node } from "@xyflow/react";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { generateText, tool } from "ai";
 import { z } from "zod";
+import { LiveObject } from "@liveblocks/client";
+import type { LiveblocksNode, LiveblocksEdge } from "@liveblocks/react-flow";
+import { getLiveblocks } from "@/lib/liveblocks";
+import { NODE_COLORS, SHAPE_DEFAULTS, NODE_SHAPES } from "@/types/canvas";
+import type { CanvasNode, CanvasEdge, NodeShape } from "@/types/canvas";
 
-import { getLiveblocksClient } from "@/lib/liveblocks";
-import {
-  AI_STATUS_FEED_ID,
-  type AiStatusFeedMessage,
-  type AiStatusPhase,
-} from "@/types/tasks";
-import {
-  CANVAS_EDGE_TYPE,
-  CANVAS_NODE_TYPE,
-  DEFAULT_NODE_COLOR,
-  NODE_COLORS,
-  NODE_SHAPES,
-  type CanvasEdge,
-  type CanvasNode,
-  type CanvasNodeColor,
-  type CanvasNodeShape,
-} from "@/types/canvas";
+const AI_USER_ID = "ghost-ai";
+const AI_USER_INFO = { name: "Ghost AI", avatar: "", color: "#6457f9" };
 
-interface DesignAgentPayload {
-  prompt: string;
-  roomId: string;
-  projectId?: string;
-  runId?: string;
+const NODE_SYNC_CONFIG = {
+  selected: false,
+  dragging: false,
+  measured: false,
+  resizing: false,
+  position: "atomic" as const,
+  sourcePosition: "atomic" as const,
+  targetPosition: "atomic" as const,
+  extent: "atomic" as const,
+  origin: "atomic" as const,
+  handles: "atomic" as const,
+};
+
+const EDGE_SYNC_CONFIG = {
+  selected: false,
+  markerStart: "atomic" as const,
+  markerEnd: "atomic" as const,
+  label: "atomic" as const,
+  labelBgPadding: "atomic" as const,
+};
+
+const COLOR_NAMES = ["neutral", "blue", "purple", "orange", "red", "pink", "green", "teal"];
+
+function buildSystemPrompt(): string {
+  const colorGuide = NODE_COLORS.map(
+    (c, i) => `  ${i} (${COLOR_NAMES[i]}): fill=${c.fill} text=${c.text}`
+  ).join("\n");
+
+  return `You are VinSync AI, an expert system architect that generates technical architecture diagrams on a collaborative canvas.
+
+ALLOWED SHAPES (use exact value):
+- rectangle  → services, APIs, microservices, components
+- cylinder   → databases, storage, caches
+- hexagon    → external systems, third-party services, boundaries
+- circle     → events, triggers, endpoints, user entry-points
+- diamond    → decision gateways, conditionals
+- pill       → processes, workflows, jobs
+
+COLOR PALETTE (colorIndex 0-7):
+${colorGuide}
+Recommended mapping:
+- 1 (blue)   → APIs, services, servers
+- 7 (teal)   → databases, storage
+- 3 (orange) → message queues, brokers, async flows
+- 6 (green)  → success paths, healthy services, CDN
+- 2 (purple) → auth, security, identity
+- 5 (pink)   → user-facing UI, clients
+- 0 (neutral)→ generic / unclassified
+
+LAYOUT RULES:
+- Start top-left at approximately x=100, y=80
+- Horizontal gap between sibling nodes: 240-280px
+- Vertical gap between rows: 160-200px
+- Group related nodes in horizontal rows; use vertical rows for sequential flows
+- Edge IDs must be unique, e.g. "edge-api-auth", "edge-1"
+- Node IDs must be unique short slugs, e.g. "api-gateway", "user-db", "auth-service"
+
+GENERATION RULES:
+- Create 5-12 nodes; do not overcrowd
+- Add edges to show data/request flow
+- Prefer clear left→right or top→bottom flows
+- When the canvas already has nodes, extend or modify instead of replacing unless asked
+
+INSTRUCTIONS:
+- Call addNode for each node you want to place on the canvas
+- Call addEdge for each connection between nodes
+- Call finalizeDesign last with a 1-2 sentence summary of what was designed`;
 }
 
-const AGENT_USER_ID = "vin-ai-design-agent";
-const AGENT_NAME = "Vin AI";
-const AGENT_COLOR = "#8b82ff";
+function clampColor(idx: number): number {
+  return Math.min(Math.max(Math.round(idx ?? 0), 0), NODE_COLORS.length - 1);
+}
 
-const shapeSchema = z.enum(NODE_SHAPES);
-
-const designActionSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("add-node"),
-    node: z.object({
-      id: z.string().min(1),
-      label: z.string().min(1),
-      shape: shapeSchema,
-      colorIndex: z.number().int().min(0).max(NODE_COLORS.length - 1),
-      position: z.object({ x: z.number(), y: z.number() }),
-      size: z.object({ width: z.number().positive(), height: z.number().positive() }),
+const canvasTools = {
+  addNode: tool({
+    description: "Add a new node to the canvas",
+    inputSchema: z.object({
+      id: z.string().describe('Unique slug ID e.g. "api-gateway", "user-db"'),
+      label: z.string().describe("Display label for the node"),
+      shape: z.enum(NODE_SHAPES).describe("Node shape"),
+      colorIndex: z.number().int().min(0).max(7).describe("Color palette index 0-7"),
+      x: z.number().describe("X position in pixels"),
+      y: z.number().describe("Y position in pixels"),
     }),
   }),
-  z.object({
-    type: z.literal("move-node"),
-    nodeId: z.string().min(1),
-    position: z.object({ x: z.number(), y: z.number() }),
+  moveNode: tool({
+    description: "Move an existing node to a new position",
+    inputSchema: z.object({
+      id: z.string().describe("ID of the node to move"),
+      x: z.number(),
+      y: z.number(),
+    }),
   }),
-  z.object({
-    type: z.literal("resize-node"),
-    nodeId: z.string().min(1),
-    size: z.object({ width: z.number().positive(), height: z.number().positive() }),
+  resizeNode: tool({
+    description: "Resize an existing node",
+    inputSchema: z.object({
+      id: z.string(),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    }),
   }),
-  z.object({
-    type: z.literal("update-node-data"),
-    nodeId: z.string().min(1),
-    label: z.string().min(1).optional(),
-    shape: shapeSchema.optional(),
-    colorIndex: z.number().int().min(0).max(NODE_COLORS.length - 1).optional(),
-  }),
-  z.object({
-    type: z.literal("delete-node"),
-    nodeId: z.string().min(1),
-  }),
-  z.object({
-    type: z.literal("add-edge"),
-    edge: z.object({
-      id: z.string().min(1),
-      source: z.string().min(1),
-      target: z.string().min(1),
-      sourceHandle: z.string().optional(),
-      targetHandle: z.string().optional(),
+  updateNodeData: tool({
+    description: "Update the label, shape, or color of an existing node",
+    inputSchema: z.object({
+      id: z.string(),
       label: z.string().optional(),
-      showArrow: z.boolean().optional(),
-      pathStyle: z.enum(["straight", "sigmoid"]).optional(),
+      shape: z.enum(NODE_SHAPES).optional(),
+      colorIndex: z.number().int().min(0).max(7).optional(),
     }),
   }),
-  z.object({
-    type: z.literal("delete-edge"),
-    edgeId: z.string().min(1),
+  deleteNode: tool({
+    description: "Delete a node from the canvas",
+    inputSchema: z.object({
+      id: z.string(),
+    }),
   }),
-]);
-
-const designPlanSchema = z.object({
-  actions: z.array(designActionSchema).min(1).max(12),
-});
-
-type DesignPlan = z.infer<typeof designPlanSchema>;
-type DesignAction = z.infer<typeof designActionSchema>;
-type FlowSnapshot = {
-  nodes: readonly CanvasNode[];
-  edges: readonly CanvasEdge[];
+  addEdge: tool({
+    description: "Add a directed edge between two nodes",
+    inputSchema: z.object({
+      id: z.string().describe('Unique edge ID e.g. "edge-api-db"'),
+      source: z.string().describe("Source node ID"),
+      target: z.string().describe("Target node ID"),
+      label: z.string().optional().describe("Optional edge label"),
+    }),
+  }),
+  deleteEdge: tool({
+    description: "Delete an edge from the canvas",
+    inputSchema: z.object({
+      id: z.string(),
+    }),
+  }),
+  finalizeDesign: tool({
+    description: "Complete the design and provide a summary — call this last",
+    inputSchema: z.object({
+      summary: z.string().describe("1-2 sentence description of the designed architecture"),
+    }),
+  }),
 };
 
-const toKebabCase = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "item";
-
-const uniqueId = (baseId: string, existingIds: Set<string>) => {
-  let candidate = toKebabCase(baseId);
-  let suffix = 1;
-
-  while (existingIds.has(candidate)) {
-    candidate = `${toKebabCase(baseId)}-${suffix}`;
-    suffix += 1;
-  }
-
-  existingIds.add(candidate);
-  return candidate;
-};
-
-const getColor = (index: number): CanvasNodeColor =>
-  NODE_COLORS[Math.max(0, Math.min(index, NODE_COLORS.length - 1))] ??
-  DEFAULT_NODE_COLOR;
-
-const getShapeSize = (shape: CanvasNodeShape) => {
-  switch (shape) {
-    case "diamond":
-      return { width: 200, height: 140 };
-    case "circle":
-      return { width: 140, height: 140 };
-    case "pill":
-      return { width: 180, height: 96 };
-    case "cylinder":
-      return { width: 180, height: 120 };
-    case "hexagon":
-      return { width: 180, height: 120 };
-    case "rectangle":
-    default:
-      return { width: 180, height: 110 };
-  }
-};
-
-const normalizePosition = (position: { x: number; y: number }) => ({
-  x: Math.round(position.x / 24) * 24,
-  y: Math.round(position.y / 24) * 24,
-});
-
-const normalizeSize = (size: { width: number; height: number }) => ({
-  width: Math.round(Math.max(size.width, 80) / 8) * 8,
-  height: Math.round(Math.max(size.height, 60) / 8) * 8,
-});
-
-const isCanvasNodeShape = (value: unknown): value is CanvasNodeShape =>
-  typeof value === "string" &&
-  NODE_SHAPES.includes(value as CanvasNodeShape);
-
-const isCanvasNodeColor = (value: unknown): value is CanvasNodeColor =>
-  NODE_COLORS.some((color) => color === value);
-
-const getNumericStyleValue = (value: unknown) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const buildCanvasSummary = (
-  nodes: readonly Node[],
-  edges: readonly Edge[],
-) => ({
-  nodes: nodes.map((node) => ({
-    id: node.id,
-    label: typeof node.data.label === "string" ? node.data.label : node.id,
-    shape: isCanvasNodeShape(node.data.shape) ? node.data.shape : "rectangle",
-    color: isCanvasNodeColor(node.data.color) ? node.data.color : DEFAULT_NODE_COLOR,
-    position: node.position,
-    size: {
-      width: getNumericStyleValue(node.style?.width),
-      height: getNumericStyleValue(node.style?.height),
-    },
-  })),
-  edges: edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: edge.sourceHandle ?? null,
-    targetHandle: edge.targetHandle ?? null,
-    label: edge.data?.label ?? null,
-  })),
-});
-
-const getActionFocusPoint = (
-  action: DesignAction,
-  nodes: readonly Pick<Node, "id" | "position">[],
-) => {
-  const getNodePosition = (nodeId: string) =>
-    nodes.find((node) => node.id === nodeId)?.position ?? null;
-
-  if (action.type === "add-node") {
-    return action.node.position;
-  }
-
-  if (
-    action.type === "move-node" ||
-    action.type === "resize-node" ||
-    action.type === "update-node-data" ||
-    action.type === "delete-node"
-  ) {
-    return getNodePosition(action.nodeId);
-  }
-
-  if (action.type === "add-edge") {
-    const source = getNodePosition(action.edge.source);
-    const target = getNodePosition(action.edge.target);
-
-    if (source && target) {
-      return {
-        x: (source.x + target.x) / 2,
-        y: (source.y + target.y) / 2,
-      };
-    }
-
-    return source ?? target;
-  }
-
-  return null;
-};
-
-const buildPrompt = (prompt: string, canvasSummary: ReturnType<typeof buildCanvasSummary>) => `
-You are Vin AI, a collaborative system design agent.
-
-Goal:
-- Turn the user's prompt into a concise architecture update on a shared React Flow canvas.
-
-Rules:
-- Use only these node shapes: ${NODE_SHAPES.join(", ")}.
-- Use the existing color palette by choosing colorIndex values from 0 to ${NODE_COLORS.length - 1}.
-- Prefer a left-to-right architecture flow with consistent spacing.
-- Keep nodes on a loose grid and avoid overlap.
-- Keep labels concise and architecture-oriented.
-- Reuse existing nodes and edges when they already fit the prompt.
-- Use at most 12 actions.
-- Return only actions that are safe to apply directly.
-
-Current canvas summary:
-${JSON.stringify(canvasSummary, null, 2)}
-
-User prompt:
-${prompt}
-`;
-
-const roomEventTime = () => new Date().toISOString();
-
-const ensureAiStatusFeed = async (
-  client: ReturnType<typeof getLiveblocksClient>,
-  roomId: string,
-) => {
-  try {
-    await client.getFeed({ roomId, feedId: AI_STATUS_FEED_ID });
-  } catch {
-    await client
-      .createFeed({
-        roomId,
-        feedId: AI_STATUS_FEED_ID,
-        metadata: { purpose: "ai-status" },
-      })
-      .catch(() => undefined);
-  }
-};
-
-const emitStatus = async (
-  client: ReturnType<typeof getLiveblocksClient>,
-  roomId: string,
-  runId: string,
-  projectId: string,
-  phase: AiStatusPhase,
-  message: string,
-) => {
-  const timestamp = roomEventTime();
-  const feedMessage: AiStatusFeedMessage = {
-    kind: "ai-status",
-    source: "design",
-    phase,
-    projectId,
-    runId,
-    text: message,
-    timestamp,
-  };
-
-  await ensureAiStatusFeed(client, roomId);
-  await client
-    .createFeedMessage<AiStatusFeedMessage>({
-      roomId,
-      feedId: AI_STATUS_FEED_ID,
-      data: feedMessage,
-      createdAt: Date.parse(timestamp),
-    })
-    .catch(() => undefined);
-
-  await client.broadcastEvent(roomId, {
-    type: "design-agent/status",
-    phase,
-    message,
-    runId,
-    projectId,
-    timestamp,
-  });
-};
-
-const setAgentPresence = async (
-  client: ReturnType<typeof getLiveblocksClient>,
-  roomId: string,
-  presence: { cursor: { x: number; y: number } | null; thinking: boolean },
-  ttl = 30,
-) => {
-  await client.setPresence(roomId, {
-    userId: AGENT_USER_ID,
-    data: presence,
-    userInfo: {
-      name: AGENT_NAME,
-      avatar: "",
-      color: AGENT_COLOR,
-    },
-    ttl,
-  });
-};
-
-const applyPlan = async (
-  roomId: string,
-  runId: string,
-  projectId: string,
-  plan: DesignPlan,
-) => {
-  const client = getLiveblocksClient();
-  const takenIds = new Set<string>();
-  const idMap = new Map<string, string>();
-  let appliedActions = 0;
-  let skippedActions = 0;
-
-  await emitStatus(
-    client,
-    roomId,
-    runId,
-    projectId,
-    "start",
-    "Starting the architecture update.",
-  );
-
-  try {
-    await mutateFlow<CanvasNode, CanvasEdge>({ client, roomId }, async (flow) => {
-      for (const action of plan.actions) {
-        const snapshot = flow.toJSON();
-        const focusPoint = getActionFocusPoint(action, snapshot.nodes);
-
-        await setAgentPresence(
-          client,
-          roomId,
-          {
-            cursor: focusPoint ? normalizePosition(focusPoint) : { x: 120, y: 120 },
-            thinking: true,
-          },
-          30,
-        );
-
-        await emitStatus(
-          client,
-          roomId,
-          runId,
-          projectId,
-          "applying",
-          `Applying ${action.type.replace(/-/g, " ")}.`,
-        );
-
-        if (action.type === "add-node") {
-          const nodeId = uniqueId(action.node.id, takenIds);
-          idMap.set(action.node.id, nodeId);
-
-          flow.addNode({
-            id: nodeId,
-            type: CANVAS_NODE_TYPE,
-            position: normalizePosition(action.node.position),
-            data: {
-              label: action.node.label,
-              shape: action.node.shape,
-              color: getColor(action.node.colorIndex),
-            },
-            style: normalizeSize(action.node.size),
-          });
-
-          appliedActions += 1;
-          continue;
-        }
-
-        if (action.type === "move-node") {
-          const resolvedNodeId = idMap.get(action.nodeId) ?? action.nodeId;
-
-          if (!flow.getNode(resolvedNodeId)) {
-            skippedActions += 1;
-            continue;
-          }
-
-          flow.updateNode(resolvedNodeId, {
-            position: normalizePosition(action.position),
-          });
-
-          appliedActions += 1;
-          continue;
-        }
-
-        if (action.type === "resize-node") {
-          const resolvedNodeId = idMap.get(action.nodeId) ?? action.nodeId;
-
-          if (!flow.getNode(resolvedNodeId)) {
-            skippedActions += 1;
-            continue;
-          }
-
-          flow.updateNode(resolvedNodeId, {
-            style: normalizeSize(action.size),
-          });
-
-          appliedActions += 1;
-          continue;
-        }
-
-        if (action.type === "update-node-data") {
-          const resolvedNodeId = idMap.get(action.nodeId) ?? action.nodeId;
-          const currentNode = flow.getNode(resolvedNodeId);
-
-          if (!currentNode) {
-            skippedActions += 1;
-            continue;
-          }
-
-          flow.updateNodeData(resolvedNodeId, (data) => ({
-            ...data,
-            ...(action.label ? { label: action.label } : {}),
-            ...(action.shape ? { shape: action.shape } : {}),
-            ...(action.colorIndex !== undefined
-              ? { color: getColor(action.colorIndex) }
-              : {}),
-          }));
-
-          if (action.shape) {
-            flow.updateNode(resolvedNodeId, {
-              style: {
-                ...(currentNode.style ?? {}),
-                ...getShapeSize(action.shape),
-              },
-            });
-          }
-
-          appliedActions += 1;
-          continue;
-        }
-
-        if (action.type === "delete-node") {
-          const resolvedNodeId = idMap.get(action.nodeId) ?? action.nodeId;
-
-          if (!flow.getNode(resolvedNodeId)) {
-            skippedActions += 1;
-            continue;
-          }
-
-          const connectedEdgeIds = flow.edges
-            .filter((edge) => edge.source === resolvedNodeId || edge.target === resolvedNodeId)
-            .map((edge) => edge.id);
-
-          flow.removeEdges(connectedEdgeIds);
-          flow.removeNode(resolvedNodeId);
-
-          appliedActions += 1;
-          continue;
-        }
-
-        if (action.type === "add-edge") {
-          const source = idMap.get(action.edge.source) ?? action.edge.source;
-          const target = idMap.get(action.edge.target) ?? action.edge.target;
-
-          if (!flow.getNode(source) || !flow.getNode(target)) {
-            skippedActions += 1;
-            continue;
-          }
-
-          const edgeId = uniqueId(action.edge.id, takenIds);
-          idMap.set(action.edge.id, edgeId);
-
-          flow.addEdge({
-            id: edgeId,
-            type: CANVAS_EDGE_TYPE,
-            source,
-            target,
-            sourceHandle: action.edge.sourceHandle,
-            targetHandle: action.edge.targetHandle,
-            data: {
-              label: action.edge.label,
-              showArrow: action.edge.showArrow ?? true,
-              pathStyle: action.edge.pathStyle ?? "sigmoid",
-            },
-          });
-
-          appliedActions += 1;
-          continue;
-        }
-
-        if (action.type === "delete-edge") {
-          const resolvedEdgeId = idMap.get(action.edgeId) ?? action.edgeId;
-
-          if (!flow.getEdge(resolvedEdgeId)) {
-            skippedActions += 1;
-            continue;
-          }
-
-          flow.removeEdge(resolvedEdgeId);
-          appliedActions += 1;
-        }
-      }
-    });
-
-    await emitStatus(
-      client,
-      roomId,
-      runId,
-      projectId,
-      "complete",
-      "Architecture update complete.",
-    );
-
-    await client.broadcastEvent(roomId, {
-      type: "design-agent/result",
-      runId,
-      projectId,
-      appliedActions,
-      skippedActions,
-      timestamp: roomEventTime(),
-    });
-
-    return { appliedActions, skippedActions };
-  } finally {
-    await setAgentPresence(
-      client,
-      roomId,
-      { cursor: null, thinking: false },
-      2,
-    ).catch(() => undefined);
-  }
-};
+type ToolName = keyof typeof canvasTools;
+type ToolCall = { toolName: ToolName; input: Record<string, unknown> };
 
 export const designAgent = task({
   id: "design-agent",
-  run: async (payload: DesignAgentPayload) => {
-    const client = getLiveblocksClient();
-    const roomId = payload.roomId.trim();
-    const projectId = payload.projectId?.trim() || roomId;
-    const runId = payload.runId?.trim() || `design-${roomId}`;
-    const prompt = payload.prompt.trim();
+  retry: { maxAttempts: 2 },
+  run: async (payload: { prompt: string; roomId: string; userId: string }) => {
+    const lb = getLiveblocks();
+    const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
 
-    if (!roomId || !prompt) {
-      throw new Error("Design agent payload is missing a roomId or prompt");
-    }
+    await lb
+      .setPresence(payload.roomId, {
+        userId: AI_USER_ID,
+        data: { cursor: null, thinking: true },
+        userInfo: AI_USER_INFO,
+        ttl: 120_000,
+      })
+      .catch(() => {});
+
+    await lb
+      .broadcastEvent(payload.roomId, {
+        type: "ai-status",
+        message: "VinSync AI is analyzing your request…",
+        status: "start",
+      })
+      .catch(() => {});
 
     try {
-      await client.getOrCreateRoom(roomId, {
-        defaultAccesses: ["room:write"],
+      let canvasContext = "The canvas is currently empty — create a fresh design.";
+      try {
+        const doc = await lb.getStorageDocument(payload.roomId, "json");
+        const flow = (doc as Record<string, unknown>)?.flow as
+          | Record<string, unknown>
+          | undefined;
+        const nodeCount = flow?.nodes ? Object.keys(flow.nodes as object).length : 0;
+        if (nodeCount > 0) {
+          canvasContext = `Canvas has ${nodeCount} existing node(s). Current state:\n${JSON.stringify(flow, null, 2)}\nExtend or modify based on the request; only clear if explicitly asked.`;
+        }
+      } catch {
+        // No storage yet — treat as empty
+      }
+
+      const result = await generateText({
+        model: google("gemini-3.5-flash"),
+        system: buildSystemPrompt(),
+        prompt: `User request: ${payload.prompt}\n\n${canvasContext}`,
+        tools: canvasTools,
+        toolChoice: "required",
       });
 
-      await setAgentPresence(
-        client,
-        roomId,
-        { cursor: { x: 120, y: 120 }, thinking: true },
-        30,
-      );
+      const toolCalls = result.steps.flatMap((s) => s.toolCalls) as ToolCall[];
+      const actionCalls = toolCalls.filter((c) => c.toolName !== "finalizeDesign");
+      const finalizeCall = toolCalls.find((c) => c.toolName === "finalizeDesign");
+      const summary =
+        (finalizeCall?.input as { summary?: string } | undefined)?.summary ??
+        "Design applied to canvas.";
 
-      let canvas: FlowSnapshot = { nodes: [], edges: [] };
+      const addCount = actionCalls.filter((c) => c.toolName === "addNode").length;
+      await lb
+        .broadcastEvent(payload.roomId, {
+          type: "ai-status",
+          message: `Placing ${addCount} node${addCount !== 1 ? "s" : ""} on the canvas…`,
+          status: "thinking",
+        })
+        .catch(() => {});
 
-      await mutateFlow<CanvasNode, CanvasEdge>({ client, roomId }, (flow) => {
-        canvas = flow.toJSON();
+      await lb.mutateStorage(payload.roomId, ({ root }) => {
+        const flow = root.get("flow");
+        if (!flow) return;
+        const nodes = flow.get("nodes");
+        const edges = flow.get("edges");
+
+        for (const call of actionCalls) {
+          applyToolCall(call, nodes, edges);
+        }
       });
 
-      await emitStatus(
-        client,
-        roomId,
-        runId,
-        projectId,
-        "processing",
-        "Generating the canvas update plan.",
-      );
+      await lb
+        .broadcastEvent(payload.roomId, {
+          type: "ai-status",
+          message: summary,
+          status: "complete",
+        })
+        .catch(() => {});
 
-      const planResult = await generateObject({
-        model: google("gemini-2.0-flash"),
-        schema: designPlanSchema,
-        temperature: 0.2,
-        prompt: buildPrompt(prompt, buildCanvasSummary(canvas.nodes, canvas.edges)),
-      });
-
-      await emitStatus(
-        client,
-        roomId,
-        runId,
-        projectId,
-        "processing",
-        "Applying the generated design to the shared canvas.",
-      );
-
-      const result = await applyPlan(roomId, runId, projectId, planResult.object);
-
-      return {
-        roomId,
-        projectId,
-        runId,
-        ...result,
-      };
+      return { success: true, actionsApplied: actionCalls.length, summary };
     } catch (error) {
-      await emitStatus(
-        client,
-        roomId,
-        runId,
-        projectId,
-        "error",
-        error instanceof Error
-          ? `Design update failed: ${error.message}`
-          : "Design update failed.",
-      ).catch(() => undefined);
-
+      await lb
+        .broadcastEvent(payload.roomId, {
+          type: "ai-status",
+          message: "VinSync AI encountered an error. Please try again.",
+          status: "error",
+        })
+        .catch(() => {});
       throw error;
     } finally {
-      await setAgentPresence(
-        client,
-        roomId,
-        { cursor: null, thinking: false },
-        2,
-      ).catch(() => undefined);
+      await lb
+        .setPresence(payload.roomId, {
+          userId: AI_USER_ID,
+          data: { cursor: null, thinking: false },
+          userInfo: AI_USER_INFO,
+          ttl: 3_000,
+        })
+        .catch(() => {});
     }
   },
 });
+
+type LiveNodeLike = { get(k: string): unknown; set(k: string, v: unknown): void };
+type LiveMapLike<T> = {
+  get(id: string): T | undefined;
+  set(id: string, value: T): void;
+  delete(id: string): boolean;
+};
+
+function applyToolCall(
+  call: ToolCall,
+  nodes: LiveMapLike<LiveblocksNode<CanvasNode>>,
+  edges: LiveMapLike<LiveblocksEdge<CanvasEdge>>
+) {
+  const input = call.input;
+
+  switch (call.toolName) {
+    case "addNode": {
+      const { id, label, shape, colorIndex, x, y } = input as {
+        id: string;
+        label: string;
+        shape: NodeShape;
+        colorIndex: number;
+        x: number;
+        y: number;
+      };
+      const ci = clampColor(colorIndex);
+      const color = NODE_COLORS[ci];
+      const size = SHAPE_DEFAULTS[shape] ?? SHAPE_DEFAULTS.rectangle;
+      nodes.set(
+        id,
+        LiveObject.from(
+          {
+            id,
+            type: "canvasNode",
+            position: { x, y },
+            data: { label, color: color.fill, textColor: color.text, shape },
+            width: size.width,
+            height: size.height,
+          },
+          NODE_SYNC_CONFIG
+        ) as unknown as LiveblocksNode<CanvasNode>
+      );
+      break;
+    }
+
+    case "moveNode": {
+      const { id, x, y } = input as { id: string; x: number; y: number };
+      const n = nodes.get(id) as LiveNodeLike | undefined;
+      if (n) n.set("position", { x, y });
+      break;
+    }
+
+    case "resizeNode": {
+      const { id, width, height } = input as { id: string; width: number; height: number };
+      const n = nodes.get(id) as LiveNodeLike | undefined;
+      if (n) {
+        n.set("width", width);
+        n.set("height", height);
+      }
+      break;
+    }
+
+    case "updateNodeData": {
+      const { id, label, shape, colorIndex } = input as {
+        id: string;
+        label?: string;
+        shape?: NodeShape;
+        colorIndex?: number;
+      };
+      const n = nodes.get(id) as LiveNodeLike | undefined;
+      if (n) {
+        const data = n.get("data") as LiveNodeLike | undefined;
+        if (!data) break;
+        if (label !== undefined) data.set("label", label);
+        if (shape !== undefined) data.set("shape", shape);
+        if (colorIndex !== undefined) {
+          const ci = clampColor(colorIndex);
+          data.set("color", NODE_COLORS[ci].fill);
+          data.set("textColor", NODE_COLORS[ci].text);
+        }
+      }
+      break;
+    }
+
+    case "deleteNode": {
+      const { id } = input as { id: string };
+      nodes.delete(id);
+      break;
+    }
+
+    case "addEdge": {
+      const { id, source, target, label } = input as {
+        id: string;
+        source: string;
+        target: string;
+        label?: string;
+      };
+      edges.set(
+        id,
+        LiveObject.from(
+          {
+            id,
+            type: "canvasEdge",
+            source,
+            target,
+            sourceHandle: null as string | null,
+            targetHandle: null as string | null,
+            data: { label: label ?? "" },
+            markerEnd: {
+              type: "arrowclosed",
+              color: "rgba(255,255,255,0.4)",
+              width: 16,
+              height: 16,
+            },
+          },
+          EDGE_SYNC_CONFIG
+        ) as unknown as LiveblocksEdge<CanvasEdge>
+      );
+      break;
+    }
+
+    case "deleteEdge": {
+      const { id } = input as { id: string };
+      edges.delete(id);
+      break;
+    }
+  }
+}
