@@ -180,10 +180,10 @@ export function AiSidebar({ isOpen, onClose, roomId, projectId }: AiSidebarProps
       const typedOutput = output as { summary?: string } | undefined
       const content = isSuccess
         ? (typedOutput?.summary ?? "Design applied to canvas.")
-        : "Ghost AI encountered an error. Please try again."
+        : "VinSync AI encountered an error. Please try again."
 
       createFeedMessage(CHAT_FEED_ID, {
-        sender: "Ghost AI",
+        sender: "VinSync AI",
         role: "assistant",
         content,
         timestamp: new Date().toISOString(),
@@ -301,11 +301,11 @@ export function AiSidebar({ isOpen, onClose, roomId, projectId }: AiSidebarProps
 
     // Write initial status to ai-status-feed
     createFeedMessage(FEED_ID, {
-      text: "Ghost AI is analyzing your request…",
+      text: "VinSync AI is analyzing your request…",
       status: "start",
     }).catch(() => {})
 
-    setStatusText("Ghost AI is analyzing your request…")
+    setStatusText("VinSync AI is analyzing your request…")
 
     try {
       const designRes = await fetch("/api/ai/design", {
@@ -332,14 +332,14 @@ export function AiSidebar({ isOpen, onClose, roomId, projectId }: AiSidebarProps
       setPublicToken(token)
     } catch {
       createFeedMessage(CHAT_FEED_ID, {
-        sender: "Ghost AI",
+        sender: "VinSync AI",
         role: "assistant",
-        content: "Failed to reach Ghost AI. Please try again.",
+        content: "Failed to reach VinSync AI. Please try again.",
         timestamp: new Date().toISOString(),
       }).catch(() => {})
 
       createFeedMessage(FEED_ID, {
-        text: "Ghost AI encountered an error.",
+        text: "VinSync AI encountered an error.",
         status: "error",
       }).catch(() => {})
 
@@ -589,7 +589,7 @@ export function AiSidebar({ isOpen, onClose, roomId, projectId }: AiSidebarProps
                     </div>
                     <div>
                       <p className="text-sm font-medium text-text-primary">
-                        Ghost AI Architect
+                        VinSync AI Architect
                       </p>
                       <p className="mt-1 text-xs leading-5 text-text-muted">
                         Describe your system and I&apos;ll design the architecture on the canvas.
@@ -720,7 +720,7 @@ export function AiSidebar({ isOpen, onClose, roomId, projectId }: AiSidebarProps
                             )}
                           >
                             <span className="font-medium text-text-muted">
-                              {isAI ? "Ghost AI" : msg.sender}
+                              {isAI ? "VinSync AI" : msg.sender}
                             </span>
                             <span>{formatTime(msg.createdAt)}</span>
                           </div>

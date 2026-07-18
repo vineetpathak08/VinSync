@@ -1,61 +1,62 @@
-import "server-only";
+import { auth, currentUser } from "@clerk/nextjs/server"
+import { prisma } from "@/lib/prisma"
 
-import { auth, currentUser } from "@clerk/nextjs/server";
-
-import { prisma } from "@/lib/prisma";
-import type { Project } from "@/app/generated/prisma/client";
-
-export interface ClerkIdentity {
-  userId: string | null;
-  primaryEmail: string | null;
+export interface ProjectIdentity {
+  userId: string | null
+  primaryEmailAddress: string | null
 }
 
-export async function getCurrentClerkIdentity(): Promise<ClerkIdentity> {
-  const { userId } = await auth();
+export async function getCurrentProjectIdentity(): Promise<ProjectIdentity> {
+  const { userId } = await auth()
 
   if (!userId) {
-    return { userId: null, primaryEmail: null };
+    return {
+      userId: null,
+      primaryEmailAddress: null,
+    }
   }
 
-  const user = await currentUser();
-  const primaryEmail =
-    user?.emailAddresses.find(
-      (email) => email.id === user.primaryEmailAddressId,
-    )?.emailAddress ??
-    user?.emailAddresses[0]?.emailAddress ??
-    null;
+  const user = await currentUser()
 
-  return { userId, primaryEmail };
+  return {
+    userId,
+    primaryEmailAddress:
+      user?.primaryEmailAddress?.emailAddress?.trim().toLowerCase() ?? null,
+  }
 }
 
-type ProjectAccessInfo = Pick<Project, "id" | "name">;
-
-export async function getProjectByAccess(
+export async function getAccessibleProject(
   projectId: string,
-  identity: ClerkIdentity,
-): Promise<ProjectAccessInfo | null> {
-  if (!identity.userId) {
-    return null;
-  }
-
-  const collaboratorFilter = identity.primaryEmail
-    ? {
-        collaborators: {
-          some: {
-            collaboratorEmail: identity.primaryEmail,
-          },
-        },
-      }
-    : null;
+  identity: ProjectIdentity
+) {
+  if (!identity.userId) return null
 
   return prisma.project.findFirst({
     where: {
       id: projectId,
-      OR: [
-        { ownerId: identity.userId },
-        ...(collaboratorFilter ? [collaboratorFilter] : []),
-      ],
+      OR: identity.primaryEmailAddress
+        ? [
+            { ownerId: identity.userId },
+            {
+              collaborators: {
+                some: {
+                  email: {
+                    equals: identity.primaryEmailAddress,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            },
+          ]
+        : [{ ownerId: identity.userId }],
     },
-    select: { id: true, name: true },
-  });
+  })
+}
+
+export async function userHasProjectAccess(
+  projectId: string,
+  identity: ProjectIdentity
+) {
+  const project = await getAccessibleProject(projectId, identity)
+  return Boolean(project)
 }

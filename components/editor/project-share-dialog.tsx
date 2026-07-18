@@ -91,7 +91,7 @@ function CollaboratorRow({
       {canManage && person.role === "collaborator" && person.email && onRemove ? (
         <Button
           type="button"
-          variant="ghost"
+          variant="vin"
           size="icon-sm"
           onClick={() => onRemove(person.email!)}
           disabled={removing}

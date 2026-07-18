@@ -50,7 +50,7 @@ export function ProjectSidebar({
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-default px-4">
           <span className="text-sm font-medium text-text-primary">Projects</span>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
+          <Button variant="vin" size="icon-sm" onClick={onClose}>
             <X className="h-4 w-4" />
             <span className="sr-only">Close sidebar</span>
           </Button>
@@ -165,7 +165,7 @@ function ProjectItem({ project, active = false, onRename, onDelete }: ProjectIte
       {onRename && onDelete && (
         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <Button
-            variant="ghost"
+            variant="vin"
             size="icon-sm"
             onClick={(e) => {
               e.preventDefault()
@@ -176,7 +176,7 @@ function ProjectItem({ project, active = false, onRename, onDelete }: ProjectIte
             <span className="sr-only">Rename</span>
           </Button>
           <Button
-            variant="ghost"
+            variant="vin"
             size="icon-sm"
             onClick={(e) => {
               e.preventDefault()

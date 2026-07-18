@@ -37,7 +37,7 @@ export default function SignInPage() {
               </span>
             </div>
             <span className="text-sm font-semibold text-text-primary">
-              Ghost AI
+              <VinSync></VinSync> AI
             </span>
           </div>
         </div>
@@ -74,7 +74,7 @@ export default function SignInPage() {
 
         <div className="px-12 pb-10">
           <p className="text-xs text-text-faint">
-            © 2026 Ghost AI. All rights reserved.
+            © 2026 Vinsync AI. All rights reserved.
           </p>
         </div>
       </div>

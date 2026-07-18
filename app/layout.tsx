@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Ghost AI",
+  title: "Vinsync AI",
   description: "AI-powered design collaboration",
 }
 
